@@ -1,0 +1,29 @@
+# Config de base NTL-SysToolbox
+
+general:
+  output_dir: "./outputs"
+  log_level: "INFO"
+
+diagnostic:
+  ad_dns_servers:
+    - "10.5.60.10"
+  mysql:
+    host: "10.5.60.20"
+    port: 3306
+    user: "wms_user"
+    password: "azerty89"
+    database: "wms"
+
+backup_wms:
+  mysql:
+    host: "10.5.60.20"
+    port: 3306
+    user: "wms_backup"
+    password: "azerty89"
+    database: "wms"
+  backup_dir: "./backups"
+  mysqldump_path: "mysqldump"
+
+audit:
+  subnet: "10.5.60.0/24"
+  eol_reference_file: "./data/eol_reference.csv"
