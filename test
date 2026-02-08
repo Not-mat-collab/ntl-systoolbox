@@ -1,0 +1,20 @@
+1. Dans main.py – Ajouter l’import + wrapper
+Ajoute en haut après l’import de DiagnosticModule :
+
+python
+# Importer le module 2
+try:
+    import module2_wms_backup
+except ImportError:
+    print("ERREUR: module2_wms_backup.py doit être dans le même répertoire")
+    sys.exit(1)
+
+Puis ajoute cette méthode dans NTLSysToolboxCLI :
+
+python
+def run_module2_wms(self):
+    """Lance ton module 2 avec la config."""
+    self.clear_screen()
+    self.banner()
+    m2 = self.config.get("module2_wms", {})
+    print("MODULE
