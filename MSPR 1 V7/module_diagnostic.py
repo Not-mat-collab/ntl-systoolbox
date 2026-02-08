@@ -845,29 +845,60 @@ class DiagnosticCLI:
         input("\nEntrée...")
     
     def _save_results(self):
-        """Sauvegarde résultats JSON/TXT"""
+        """Sauvegarde les résultats du dernier diagnostic dans le dossier approprié"""
+        
+        # Vérifier qu'il y a des résultats à sauvegarder
         if not self.diag.results.get("checks"):
             print("\n[!] Aucun résultat à sauvegarder.")
-            input("Entrée...")
+            print("    Effectuez d'abord un diagnostic (options 1-6).")
+            input("\nEntrée...")
             return
         
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        json_file = self.backup_dir / f"diagnostic_{timestamp}.json"
-        txt_file = self.backup_dir / f"diagnostic_{timestamp}.txt"
+        # Vérifier que l'on sait quel type de test a été effectué
+        if not self.last_check_type:
+            print("\n[!] Type de diagnostic inconnu.")
+            print("    Effectuez d'abord un diagnostic avant de sauvegarder.")
+            input("\nEntrée...")
+            return
         
+        # Déterminer le dossier cible selon le type de diagnostic
+        backup_folder = self.backup_folders.get(self.last_check_type, Path("backups"))
+        
+        # Générer le nom de fichier avec horodatage
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_filename = f"{self.last_check_type}_{timestamp}"
+        json_file = backup_folder / f"{base_filename}.json"
+        txt_file = backup_folder / f"{base_filename}.txt"
+        
+        # Tentative de sauvegarde
         try:
+            # Sauvegarde format JSON (structuré)
             with open(json_file, "w", encoding="utf-8") as f:
                 f.write(self.diag.get_results_json())
+            
+            # Sauvegarde format TXT (lisible humain)
             with open(txt_file, "w", encoding="utf-8") as f:
                 f.write(self.diag.get_results_human())
             
-            print(f"\n✓ Sauvegarde réussie:")
-            print(f"  JSON: {json_file}")
-            print(f"  TXT:  {txt_file}")
+            # Confirmation avec détails
+            print("\n" + "=" * 70)
+            print("✓ SAUVEGARDE RÉUSSIE")
+            print("=" * 70)
+            print(f"Type de diagnostic : {self.last_check_type.upper()}")
+            print(f"Dossier            : {backup_folder}/")
+            print(f"Fichier JSON       : {json_file.name}")
+            print(f"Fichier TXT        : {txt_file.name}")
+            print("=" * 70)
+            
         except Exception as e:
-            print(f"\n[!] Erreur: {e}")
+            print("\n" + "=" * 70)
+            print("✗ ERREUR DE SAUVEGARDE")
+            print("=" * 70)
+            print(f"Erreur: {e}")
+            print("=" * 70)
         
-        input("\nEntrée...")
+        input("\nAppuyez sur Entrée pour continuer...")
+
     
     def _clear_screen(self):
         os.system("cls" if os.name == "nt" else "clear")
