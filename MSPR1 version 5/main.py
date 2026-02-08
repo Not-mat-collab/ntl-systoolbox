@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+!/usr/bin/env python3
 """
 NTL-SysToolbox - Outil de diagnostic et gestion pour Nord Transit Logistics
 Interface CLI avec CONFIGURATION INFRASTRUCTURE
@@ -335,7 +335,7 @@ class NTLSysToolboxCLI:
             user = password = None
         print("\n[+] Diagnostic en cours...")
         diag = DiagnosticModule()
-        diag.check_windows_server(remote_ip or None, user or None, password or None)
+        diag.check_windows_server(None, remote_ip or None, user, password)
         self.current_diagnostic = diag
         self.current_diagnostic_type = "windows"
         print(diag.get_results_human())
@@ -357,7 +357,7 @@ class NTLSysToolboxCLI:
             user = password = None
         print("\n[+] Diagnostic en cours...")
         diag = DiagnosticModule()
-        diag.check_ubuntu_server(remote_ip or None, user or None, password or None)
+        diag.check_ubuntu_server(None, remote_ip or None, user, password)
         self.current_diagnostic = diag
         self.current_diagnostic_type = "ubuntu"
         print(diag.get_results_human())
