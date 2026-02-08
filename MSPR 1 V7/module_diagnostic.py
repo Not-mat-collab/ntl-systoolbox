@@ -653,11 +653,11 @@ class DiagnosticCLI:
     def __init__(self):
         self.diag = DiagnosticModule()
         self.config = self._load_config()
-        self.last_check_type = None  # <--- AJOUT : Tracker le dernier type
-        self._setup_backup_folders()  # <--- AJOUT : Créer les dossiers
-
-     def _setup_backup_folders(self):
-        """Crée l'arborescence backups/"""
+        self.last_check_type = None
+        self._setup_backup_folders()
+    
+    def _setup_backup_folders(self):
+        """Crée l'arborescence de dossiers de sauvegarde"""
         self.backup_folders = {
             'ad_dns': Path("backups/ad_dns"),
             'mysql': Path("backups/mysql"),
@@ -738,7 +738,7 @@ class DiagnosticCLI:
         print("\n[+] Analyse en cours...")
         
         self.diag.check_ad_dns_service(ip)
-        self.last_check_type = "ad_dns"  # <--- AJOUT
+        self.last_check_type = "ad_dns"
         print(self.diag.get_results_human())
         input("\nEntrée...")
     
@@ -763,7 +763,7 @@ class DiagnosticCLI:
             password,
             self.config['wms_db_ssl']
         )
-        self.last_check_type = "mysql"  # <--- AJOUT
+        self.last_check_type = "mysql"
         print(self.diag.get_results_human())
         input("\nEntrée...")
     
@@ -783,8 +783,8 @@ class DiagnosticCLI:
         else:
             print("\n[+] Diagnostic local...")
             self.diag.check_windows_server()
-
-        self.last_check_type = "windows"  # <--- AJOUT
+        
+        self.last_check_type = "windows"
         print(self.diag.get_results_human())
         input("\nEntrée...")
     
@@ -805,7 +805,7 @@ class DiagnosticCLI:
             print("\n[+] Diagnostic local...")
             self.diag.check_ubuntu_server()
         
-        self.last_check_type = "ubuntu"  # <--- AJOUT
+        self.last_check_type = "ubuntu"
         print(self.diag.get_results_human())
         input("\nEntrée...")
     
@@ -839,48 +839,40 @@ class DiagnosticCLI:
             self.diag.check_windows_server()
         else:
             self.diag.check_ubuntu_server()
-
-        self.last_check_type = "global"  # <--- AJOUT
+        
+        self.last_check_type = "global"
         print(self.diag.get_results_human())
         input("\nEntrée...")
     
     def _save_results(self):
         """Sauvegarde les résultats du dernier diagnostic dans le dossier approprié"""
         
-        # Vérifier qu'il y a des résultats à sauvegarder
         if not self.diag.results.get("checks"):
             print("\n[!] Aucun résultat à sauvegarder.")
             print("    Effectuez d'abord un diagnostic (options 1-6).")
             input("\nEntrée...")
             return
         
-        # Vérifier que l'on sait quel type de test a été effectué
         if not self.last_check_type:
             print("\n[!] Type de diagnostic inconnu.")
             print("    Effectuez d'abord un diagnostic avant de sauvegarder.")
             input("\nEntrée...")
             return
         
-        # Déterminer le dossier cible selon le type de diagnostic
         backup_folder = self.backup_folders.get(self.last_check_type, Path("backups"))
         
-        # Générer le nom de fichier avec horodatage
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         base_filename = f"{self.last_check_type}_{timestamp}"
         json_file = backup_folder / f"{base_filename}.json"
         txt_file = backup_folder / f"{base_filename}.txt"
         
-        # Tentative de sauvegarde
         try:
-            # Sauvegarde format JSON (structuré)
             with open(json_file, "w", encoding="utf-8") as f:
                 f.write(self.diag.get_results_json())
             
-            # Sauvegarde format TXT (lisible humain)
             with open(txt_file, "w", encoding="utf-8") as f:
                 f.write(self.diag.get_results_human())
             
-            # Confirmation avec détails
             print("\n" + "=" * 70)
             print("✓ SAUVEGARDE RÉUSSIE")
             print("=" * 70)
@@ -898,7 +890,6 @@ class DiagnosticCLI:
             print("=" * 70)
         
         input("\nAppuyez sur Entrée pour continuer...")
-
     
     def _clear_screen(self):
         os.system("cls" if os.name == "nt" else "clear")
