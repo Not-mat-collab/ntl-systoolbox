@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
 """
-Module 1 - Diagnostic avec support à distance
+Module 1 - Diagnostic avec support à distance (AUTONOME)
 Vérifie l'état des services critiques AD/DNS, MySQL et ressources système (local et distant)
 """
 
@@ -9,6 +10,16 @@ import json
 import psutil
 from datetime import datetime
 import socket
+import argparse
+import sys
+import os
+from pathlib import Path
+
+CONFIG_FILE = Path("ntl_config.json")
+
+# ============================================================================
+# CLASSE DIAGNOSTIC MODULE (Moteur)
+# ============================================================================
 
 class DiagnosticModule:
     def __init__(self):
@@ -29,19 +40,15 @@ class DiagnosticModule:
         }
 
         try:
-            # Test DNS
             dns_test = self._test_dns(server_ip)
             check_result["details"]["dns"] = dns_test
 
-            # Test connectivité LDAP (port 389 pour AD)
             ldap_test = self._test_port(server_ip, 389, "LDAP")
             check_result["details"]["ldap"] = ldap_test
 
-            # Test Kerberos (port 88)
             kerberos_test = self._test_port(server_ip, 88, "Kerberos")
             check_result["details"]["kerberos"] = kerberos_test
 
-            # Déterminer le statut global
             if all([dns_test["available"], ldap_test["available"], kerberos_test["available"]]):
                 check_result["status"] = "OK"
             else:
@@ -143,7 +150,6 @@ class DiagnosticModule:
             "details": {}
         }
 
-        # Mode distant via PowerShell Remoting
         if remote_ip and username and password:
             try:
                 from pypsrp.client import Client
@@ -151,10 +157,8 @@ class DiagnosticModule:
                 check_result["details"]["mode"] = "remote"
                 check_result["hostname"] = remote_ip
 
-                # Connexion PowerShell
                 client = Client(remote_ip, username=username, password=password, ssl=False)
 
-                # Récupérer infos OS
                 ps_script = """
                 $os = Get-WmiObject Win32_OperatingSystem
                 $cpu = Get-WmiObject Win32_Processor | Select-Object -First 1
@@ -207,7 +211,6 @@ class DiagnosticModule:
                         "usage_percent": round((used_mem / total_mem * 100), 2) if total_mem > 0 else 0
                     }
 
-                    # Disques
                     disk_script = """
                     Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3" | 
                     Select-Object DeviceID, VolumeName, 
@@ -251,7 +254,6 @@ class DiagnosticModule:
                 check_result["status"] = "ERROR"
                 check_result["error"] = f"Erreur connexion PowerShell: {str(e)}"
 
-        # Mode local avec psutil
         else:
             if platform.system() != "Windows":
                 check_result["status"] = "ERROR"
@@ -321,7 +323,6 @@ class DiagnosticModule:
             "details": {}
         }
 
-        # Mode distant via SSH
         if remote_ip and username and password:
             try:
                 import paramiko
@@ -329,12 +330,10 @@ class DiagnosticModule:
                 check_result["details"]["mode"] = "remote"
                 check_result["hostname"] = remote_ip
 
-                # Connexion SSH
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(remote_ip, username=username, password=password, timeout=10)
 
-                # Version OS
                 stdin, stdout, stderr = ssh.exec_command('lsb_release -d')
                 os_desc = stdout.read().decode().strip().replace('Description:\t', '')
                 check_result["details"]["distribution"] = os_desc
@@ -343,14 +342,12 @@ class DiagnosticModule:
                 kernel = stdout.read().decode().strip()
                 check_result["details"]["os_version"] = f"Linux {kernel}"
 
-                # Uptime
                 stdin, stdout, stderr = ssh.exec_command('cat /proc/uptime')
                 uptime_data = stdout.read().decode().strip().split()[0]
                 uptime_seconds = int(float(uptime_data))
                 check_result["details"]["uptime_seconds"] = uptime_seconds
                 check_result["details"]["uptime_formatted"] = self._format_uptime(uptime_seconds)
 
-                # CPU
                 stdin, stdout, stderr = ssh.exec_command('nproc')
                 cpu_count = int(stdout.read().decode().strip())
 
@@ -367,7 +364,6 @@ class DiagnosticModule:
                     "count_logical": cpu_count
                 }
 
-                # RAM
                 stdin, stdout, stderr = ssh.exec_command('free -m')
                 ram_output = stdout.read().decode().strip().split('\n')[1].split()
                 total_ram = int(ram_output[1])
@@ -381,9 +377,8 @@ class DiagnosticModule:
                     "usage_percent": round((used_ram / total_ram * 100), 2) if total_ram > 0 else 0
                 }
 
-                # Disques
                 stdin, stdout, stderr = ssh.exec_command('df -h -x tmpfs -x devtmpfs')
-                disk_output = stdout.read().decode().strip().split('\n')[1:]  # Skip header
+                disk_output = stdout.read().decode().strip().split('\n')[1:]
 
                 disks = []
                 for line in disk_output:
@@ -395,7 +390,6 @@ class DiagnosticModule:
                             avail_str = parts[3].replace('G', '').replace('M', '').replace('T', '')
                             usage_str = parts[4].replace('%', '')
 
-                            # Convertir en GB
                             if 'T' in parts[1]:
                                 total_gb = float(size_str) * 1024
                             elif 'M' in parts[1]:
@@ -440,7 +434,6 @@ class DiagnosticModule:
                 check_result["status"] = "ERROR"
                 check_result["error"] = f"Erreur connexion SSH: {str(e)}"
 
-        # Mode local avec psutil
         else:
             if platform.system() != "Linux":
                 check_result["status"] = "ERROR"
@@ -649,27 +642,22 @@ class DiagnosticModule:
         else:
             return 3
 
-# ... TOUT VOTRE CODE DiagnosticModule existant (inchangé) ...
 
-import argparse
-import sys
-import platform
-from pathlib import Path
-import os
-import json
-from datetime import datetime
-
-CONFIG_FILE = Path("ntl_config.json")
+# ============================================================================
+# INTERFACE CLI (Menu interactif + argparse)
+# ============================================================================
 
 class DiagnosticCLI:
-    """Interface CLI complète pour Module 1 (menu + argparse)"""
+    """Interface CLI complète avec menu interactif"""
     
     def __init__(self):
         self.diag = DiagnosticModule()
         self.config = self._load_config()
+        self.backup_dir = Path("backups/module1")
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
     
     def _load_config(self):
-        # Même logique NTLConfig.load() que main.py
+        """Charge config JSON (partagée avec main.py)"""
         defaults = {
             "dc01_ip": "192.168.10.10",
             "dc02_ip": "192.168.10.11",
@@ -684,14 +672,14 @@ class DiagnosticCLI:
         if CONFIG_FILE.exists():
             try:
                 with open(CONFIG_FILE, 'r') as f:
-                    data = json.load(f)["infrastructure"]
+                    data = json.load(f).get("infrastructure", {})
                 defaults.update(data)
             except:
                 pass
         return defaults
     
     def cli_menu(self):
-        """Menu interactif IDENTIQUE à main.py → copiez-collez menu_diagnostic()"""
+        """Menu interactif principal"""
         while True:
             self._clear_screen()
             self._banner()
@@ -703,84 +691,260 @@ class DiagnosticCLI:
             print("  [4] Diagnostic Windows (local ou distant)")
             print("  [5] Diagnostic Ubuntu/Linux (local ou distant)")
             print("  [6] Diagnostic global NTL")
+            print("  [S] Sauvegarder dernier résultat")
             print("  [0] Quitter")
             print("-" * 70)
-            choice = input("Sélectionnez : ").strip().upper()
             
-            if choice == "0": break
-            elif choice == "1": self._check_ad_dns(self.config["dc01_ip"])
-            elif choice == "2": self._check_ad_dns(self.config["dc02_ip"])
-            elif choice == "3": self._check_mysql()
-            elif choice == "4": self._check_windows()
-            elif choice == "5": self._check_ubuntu()
-            elif choice == "6": self._check_global()
+            choice = input("Choix: ").strip().upper()
+            
+            if choice == "0":
+                break
+            elif choice == "1":
+                self._check_ad_dns(self.config["dc01_ip"])
+            elif choice == "2":
+                self._check_ad_dns(self.config["dc02_ip"])
+            elif choice == "3":
+                self._check_mysql()
+            elif choice == "4":
+                self._check_windows()
+            elif choice == "5":
+                self._check_ubuntu()
+            elif choice == "6":
+                self._check_global()
+            elif choice == "S":
+                self._save_results()
+            else:
+                print("\n[!] Option invalide.")
+                input("Entrée...")
     
-    # Méthodes menu (copie des cli_check_* de main.py, FIX BUG APPEL)
-    def _check_windows(self):
+    def _check_ad_dns(self, ip):
+        """Vérification AD/DNS"""
         self._clear_screen()
-        print("DIAGNOSTIC WINDOWS")
+        self._banner()
+        print(f"VÉRIFICATION AD/DNS sur {ip}")
         print("-" * 70)
-        remote_ip = input(f"IP (Entrée=local): ").strip()
-        if remote_ip:
-            user = input(f"User [{self.config['windows_default_user']}]: ").strip() or self.config['windows_default_user']
-            password = input("Mot de passe: ").strip()
-            self.diag.check_windows_server(hostname=None, remote_ip=remote_ip, username=user, password=password)  # FIX: 4 args
-        else:
-            self.diag.check_windows_server()  # Local
+        print("\n[+] Analyse en cours...")
+        
+        self.diag.check_ad_dns_service(ip)
         print(self.diag.get_results_human())
         input("\nEntrée...")
     
-    # ... Même pour _check_ubuntu(), _check_ad_dns(ip), _check_mysql(), _check_global()
+    def _check_mysql(self):
+        """Test MySQL"""
+        self._clear_screen()
+        self._banner()
+        print("TEST MYSQL WMS")
+        print("-" * 70)
+        print(f"Hôte: {self.config['wms_db_host']}:{self.config['wms_db_port']}")
+        print(f"User: {self.config['wms_db_user']}")
+        
+        override_pass = input("Mot de passe (Entrée=config): ").strip()
+        password = override_pass if override_pass else self.config.get("wms_db_pass", "")
+        
+        print("\n[+] Connexion...")
+        self.diag.check_mysql_database(
+            self.config['wms_db_host'],
+            self.config['wms_db_port'],
+            None,
+            self.config['wms_db_user'],
+            password,
+            self.config['wms_db_ssl']
+        )
+        print(self.diag.get_results_human())
+        input("\nEntrée...")
+    
+    def _check_windows(self):
+        """Diagnostic Windows"""
+        self._clear_screen()
+        self._banner()
+        print("DIAGNOSTIC WINDOWS")
+        print("-" * 70)
+        
+        remote_ip = input("IP serveur (Entrée=local): ").strip()
+        if remote_ip:
+            user = input(f"User [{self.config['windows_default_user']}]: ").strip() or self.config['windows_default_user']
+            password = input("Mot de passe: ").strip()
+            print("\n[+] Connexion distante...")
+            self.diag.check_windows_server(hostname=None, remote_ip=remote_ip, username=user, password=password)
+        else:
+            print("\n[+] Diagnostic local...")
+            self.diag.check_windows_server()
+        
+        print(self.diag.get_results_human())
+        input("\nEntrée...")
+    
+    def _check_ubuntu(self):
+        """Diagnostic Ubuntu"""
+        self._clear_screen()
+        self._banner()
+        print("DIAGNOSTIC UBUNTU/LINUX")
+        print("-" * 70)
+        
+        remote_ip = input("IP serveur (Entrée=local): ").strip()
+        if remote_ip:
+            user = input(f"User SSH [{self.config['ubuntu_default_user']}]: ").strip() or self.config['ubuntu_default_user']
+            password = input("Mot de passe SSH: ").strip()
+            print("\n[+] Connexion SSH...")
+            self.diag.check_ubuntu_server(hostname=None, remote_ip=remote_ip, username=user, password=password)
+        else:
+            print("\n[+] Diagnostic local...")
+            self.diag.check_ubuntu_server()
+        
+        print(self.diag.get_results_human())
+        input("\nEntrée...")
+    
+    def _check_global(self):
+        """Diagnostic global NTL"""
+        self._clear_screen()
+        self._banner()
+        print("DIAGNOSTIC GLOBAL NTL")
+        print("-" * 70)
+        print(f"DC01: {self.config['dc01_ip']}")
+        print(f"DC02: {self.config['dc02_ip']}")
+        print(f"MySQL: {self.config['wms_db_host']}")
+        print("Serveur local")
+        
+        if input("\nContinuer? (o/n) [o]: ").strip().lower() == "n":
+            return
+        
+        print("\n[+] Diagnostic global...")
+        self.diag.check_ad_dns_service(self.config["dc01_ip"])
+        self.diag.check_ad_dns_service(self.config["dc02_ip"])
+        self.diag.check_mysql_database(
+            self.config["wms_db_host"],
+            self.config["wms_db_port"],
+            None,
+            self.config["wms_db_user"],
+            self.config["wms_db_pass"],
+            self.config["wms_db_ssl"]
+        )
+        
+        if platform.system() == "Windows":
+            self.diag.check_windows_server()
+        else:
+            self.diag.check_ubuntu_server()
+        
+        print(self.diag.get_results_human())
+        input("\nEntrée...")
+    
+    def _save_results(self):
+        """Sauvegarde résultats JSON/TXT"""
+        if not self.diag.results.get("checks"):
+            print("\n[!] Aucun résultat à sauvegarder.")
+            input("Entrée...")
+            return
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        json_file = self.backup_dir / f"diagnostic_{timestamp}.json"
+        txt_file = self.backup_dir / f"diagnostic_{timestamp}.txt"
+        
+        try:
+            with open(json_file, "w", encoding="utf-8") as f:
+                f.write(self.diag.get_results_json())
+            with open(txt_file, "w", encoding="utf-8") as f:
+                f.write(self.diag.get_results_human())
+            
+            print(f"\n✓ Sauvegarde réussie:")
+            print(f"  JSON: {json_file}")
+            print(f"  TXT:  {txt_file}")
+        except Exception as e:
+            print(f"\n[!] Erreur: {e}")
+        
+        input("\nEntrée...")
     
     def _clear_screen(self):
         os.system("cls" if os.name == "nt" else "clear")
     
     def _banner(self):
         print("=" * 70)
-        print("NTL-SysToolbox - MODULE 1 DIAGNOSTIC")
+        print(" NTL-SysToolbox - MODULE 1 DIAGNOSTIC")
         print("=" * 70)
-    
-    # CLI argparse (pour usage direct)
-    def add_argparse(self, subparsers):
-        win_parser = subparsers.add_parser("windows", help="Windows Server")
-        win_parser.add_argument("--ip", dest="remote_ip")
-        win_parser.add_argument("-u", "--user", default=self.config.get("windows_default_user", "Administrator"))
-        win_parser.add_argument("-p", "--password")
-        win_parser.set_defaults(func=self._run_windows_cli)
-        
-        # Même pour ubuntu, mysql, ad-dns...
-    
-    def _run_windows_cli(self, args):
-        self.diag.check_windows_server(remote_ip=args.remote_ip, username=args.user, password=args.password)
-        print(self.diag.get_results_human())
-        sys.exit(self.diag.get_exit_code())
+        print()
 
-# CLI principal argparse
+
+# ============================================================================
+# CLI ARGPARSE (Usage direct en ligne de commande)
+# ============================================================================
+
 def create_parser():
-    parser = argparse.ArgumentParser(prog="ntl diagnostic")
-    subparsers = parser.add_subparsers(dest="command")
+    """Crée parser argparse pour CLI direct"""
+    parser = argparse.ArgumentParser(
+        prog="module_diagnostic.py",
+        description="Module 1 - Diagnostic NTL (AD/DNS, MySQL, Windows/Ubuntu)"
+    )
     
-    diag_cli = DiagnosticCLI()
-    diag_cli.add_argparse(subparsers)  # Ajoute subcommands windows/ubuntu...
+    parser.add_argument("--menu", action="store_true", help="Lance le menu interactif")
+    parser.add_argument("--json", action="store_true", help="Sortie JSON (sinon humain)")
     
-    parser.add_argument("--menu", action="store_true", help="Lance menu interactif")
+    subparsers = parser.add_subparsers(dest="command", help="Commandes disponibles")
+    
+    # AD/DNS
+    dns_parser = subparsers.add_parser("ad-dns", help="Vérification AD/DNS")
+    dns_parser.add_argument("server_ip", help="IP contrôleur domaine")
+    
+    # MySQL
+    mysql_parser = subparsers.add_parser("mysql", help="Test MySQL")
+    mysql_parser.add_argument("--host", default="127.0.0.1")
+    mysql_parser.add_argument("--port", type=int, default=3306)
+    mysql_parser.add_argument("--user", default="root")
+    mysql_parser.add_argument("--password", default="")
+    mysql_parser.add_argument("--ssl", action="store_true")
+    
+    # Windows
+    win_parser = subparsers.add_parser("windows", help="Serveur Windows")
+    win_parser.add_argument("--ip", dest="remote_ip", help="IP distante (local si absent)")
+    win_parser.add_argument("-u", "--user", default="Administrator")
+    win_parser.add_argument("-p", "--password")
+    
+    # Ubuntu
+    ubuntu_parser = subparsers.add_parser("ubuntu", help="Serveur Ubuntu")
+    ubuntu_parser.add_argument("--ip", dest="remote_ip", help="IP distante (local si absent)")
+    ubuntu_parser.add_argument("-u", "--user", default="admin")
+    ubuntu_parser.add_argument("-p", "--password")
+    
     return parser
 
+
 def main():
+    """Point d'entrée principal"""
     parser = create_parser()
     args = parser.parse_args()
     
-    diag_cli = DiagnosticCLI()
-    
+    # Mode menu interactif
     if args.menu or not args.command:
-        diag_cli.cli_menu()  # Menu interactif
-    else:
-        # Mode CLI: args.func(args)
-        if hasattr(args, 'func'):
-            args.func(args)
+        cli = DiagnosticCLI()
+        cli.cli_menu()
+        return
+    
+    # Mode CLI direct
+    diag = DiagnosticModule()
+    
+    if args.command == "ad-dns":
+        diag.check_ad_dns_service(args.server_ip)
+    
+    elif args.command == "mysql":
+        diag.check_mysql_database(args.host, args.port, None, args.user, args.password, args.ssl)
+    
+    elif args.command == "windows":
+        if args.remote_ip:
+            diag.check_windows_server(hostname=None, remote_ip=args.remote_ip, username=args.user, password=args.password)
         else:
-            parser.print_help()
+            diag.check_windows_server()
+    
+    elif args.command == "ubuntu":
+        if args.remote_ip:
+            diag.check_ubuntu_server(hostname=None, remote_ip=args.remote_ip, username=args.user, password=args.password)
+        else:
+            diag.check_ubuntu_server()
+    
+    # Affichage résultats
+    if hasattr(args, 'json') and args.json:
+        print(diag.get_results_json())
+    else:
+        print(diag.get_results_human())
+    
+    sys.exit(diag.get_exit_code())
+
 
 if __name__ == "__main__":
     main()
-
