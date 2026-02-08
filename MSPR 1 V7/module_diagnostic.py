@@ -736,7 +736,8 @@ class DiagnosticCLI:
         print(f"VÉRIFICATION AD/DNS sur {ip}")
         print("-" * 70)
         print("\n[+] Analyse en cours...")
-        
+
+        self.diag = DiagnosticModule()
         self.diag.check_ad_dns_service(ip)
         self.last_check_type = "ad_dns"
         print(self.diag.get_results_human())
@@ -755,6 +756,7 @@ class DiagnosticCLI:
         password = override_pass if override_pass else self.config.get("wms_db_pass", "")
         
         print("\n[+] Connexion...")
+        self.diag = DiagnosticModule()
         self.diag.check_mysql_database(
             self.config['wms_db_host'],
             self.config['wms_db_port'],
@@ -775,6 +777,8 @@ class DiagnosticCLI:
         print("-" * 70)
         
         remote_ip = input("IP serveur (Entrée=local): ").strip()
+
+        self.diag = DiagnosticModule()
         if remote_ip:
             user = input(f"User [{self.config['windows_default_user']}]: ").strip() or self.config['windows_default_user']
             password = input("Mot de passe: ").strip()
@@ -796,6 +800,8 @@ class DiagnosticCLI:
         print("-" * 70)
         
         remote_ip = input("IP serveur (Entrée=local): ").strip()
+
+        self.diag = DiagnosticModule()
         if remote_ip:
             user = input(f"User SSH [{self.config['ubuntu_default_user']}]: ").strip() or self.config['ubuntu_default_user']
             password = input("Mot de passe SSH: ").strip()
@@ -824,6 +830,7 @@ class DiagnosticCLI:
             return
         
         print("\n[+] Diagnostic global...")
+        self.diag = DiagnosticModule()
         self.diag.check_ad_dns_service(self.config["dc01_ip"])
         self.diag.check_ad_dns_service(self.config["dc02_ip"])
         self.diag.check_mysql_database(
