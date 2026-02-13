@@ -1,0 +1,15 @@
+    print("✅ Test terminé")
+except Exception as e:
+    import traceback
+    print("\n" + "="*60)
+    print("💥 ERREUR MYSQL")
+    print("="*60)
+    print(f"Erreur: {e}")
+    print(f"Type: {type(e).__name__}")
+    print("\nTraceback complet:")
+    traceback.print_exc()
+    print("="*60)
+    
+self.last_check_type = "mysql"
+print(self.diag.get_results_human())
+input("\n⏸️  Appuie sur Entrée...")
