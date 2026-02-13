@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-02-13T19:40:08.774164",
+  "module": "diagnostic",
+  "checks": [
+    {
+      "type": "MySQL_Database",
+      "host": "10.5.60.20",
+      "port": 3306,
+      "timestamp": "2026-02-13T19:40:08.774190",
+      "status": "OK",
+      "details": {
+        "version": "10.11.14-MariaDB-0ubuntu0.24.04.1",
+        "uptime_seconds": 646873,
+        "uptime_formatted": "7j 11h 41min",
+        "active_connections": 1,
+        "total_queries": 269
+      }
+    }
+  ]
+}
