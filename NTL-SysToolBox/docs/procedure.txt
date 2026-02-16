@@ -1,0 +1,40 @@
+Déploiement sur VM vierge
+
+1. Copie des 4 fichiers : main.py, module_diagnostic.py, module2_wms_backup.py, module3_audit.py, requirements.txt
+
+# Clonage du projet :
+cd /opt/
+git clone https://github.com/tonuser/NTL-SysToolbox.git
+cd NTL-SysToolbox
+
+------------
+
+2. Linux : [bash]
+
+# Installation de python :
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv
+
+# Clonage du projet :
+cd
+git clone https://github.com/tonuser/NTL-SysToolbox.git
+cd NTL-SysToolbox
+
+# Création d'un environnement virtuel : 
+python3 -m venv venv
+source venv/bin/activate
+
+# Installation des pré-requis du programme :
+pip install -r requirements.txt
+
+# Lancer le programme :
+python3 main.py
+
+------------
+
+3. Windows : [bash]
+
+# Installation de python :
+winget install python3 --source winget
+
+pip install -r requirements.txt
+py main.py
