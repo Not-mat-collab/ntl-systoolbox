@@ -136,12 +136,13 @@ NTL-SysToolbox/
 │   ├── module2_backup_wms.py
 │   ├── module3_audit.py
 │   └── ntl_config.json
-├── backups/                     # Sauvegardes WMS générées
+├── backups/                     # Sauvegardes générées
 │   ├── ad_dns/                  # Sauvegardes ad/dns générées
 │   ├── mysql/                   # Sauvegardes mysql générées
 │   ├── windows/                 # Sauvegardes windows générées
 │   ├── ubuntu/                  # Sauvegardes ubuntu générées
-│   └── global/                  # Sauvegardes global générées
+│   ├── global/                  # Sauvegardes global générées
+│   └── wms/                     # Sauvegardes module2 générées
 ├── docs/
 │   ├── INSTALL.md               # Guide installation DSI
 │   ├── TECH.md                  # Architecture et choix techniques
