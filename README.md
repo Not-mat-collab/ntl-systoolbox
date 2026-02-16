@@ -60,9 +60,6 @@ cd ntl-systoolbox
 pip install -r requirements.txt
 # Ou sous Windows : py -m pip install -r requirements.txt
 
-# 3. Configurer l'outil
-cp config.example.yaml config.yaml
-# Éditer config.yaml avec vos paramètres (IPs, credentials, etc.)
 ```
 
 ### Lancement
@@ -81,8 +78,8 @@ L'outil expose un **menu CLI interactif** qui guide l'utilisateur à travers les
 $ python systoolbox.py
 
 ╔════════════════════════════════════════════════════╗
-║       🌟 NTL-SysToolbox v1.0.0 🌟                 ║
-║   Outil d'exploitation Nord Transit Logistics     ║
+║           🌟 NTL-SysToolbox v1.0.0 🌟             ║
+║    Outil d'exploitation Nord Transit Logistics     ║
 ╚════════════════════════════════════════════════════╝
 
 Modules disponibles :
@@ -90,13 +87,19 @@ Modules disponibles :
   2️⃣  Module Sauvegarde WMS (SQL/CSV)
   3️⃣  Module Audit obsolescence réseau
   ⚙️  Configuration
-  📚 Documentation
   0️⃣  Quitter
 
 Votre choix > 1
 
-[Module Diagnostic]
-Contrôleurs de domaine à vérifier (séparés par virgule) [192.168.10.10,192.168.10.11] : 
+[MODULE 1 - DIAGNOSTIC SYSTÈME]
+[1] AD/DNS DC01 10.5.60.10
+2] AD/DNS DC02 10.5.60.11
+[3] MySQL WMS 10.5.60.20
+[4] Diagnostic Windows (local ou distant)
+[5] Diagnostic Ubuntu/Linux (local ou distant)
+[6] Diagnostic global NTL
+[S] Sauvegarder dernier résultat
+[0] Quitter
 ```
 
 **Exemple de sortie console** :
@@ -118,10 +121,6 @@ Contrôleurs de domaine à vérifier (séparés par virgule) [192.168.10.10,192.
   ✅ Uptime : 127 jours
   ✅ CPU : 34% | RAM : 52% | Disque /var : 68%
 
-═══════════════════════════════════════════════════
-🎯 STATUT GLOBAL : AVERTISSEMENT (code retour: 1)
-📄 Rapport détaillé : ./reports/diagnostic_20260216_2039.json
-═══════════════════════════════════════════════════
 ```
 
 ---
@@ -133,45 +132,22 @@ Contrôleurs de domaine à vérifier (séparés par virgule) [192.168.10.10,192.
 ```
 NTL-SysToolbox/
 ├── src/
-│   ├── diagnostic/
-│   │   ├── __init__.py
-│   │   ├── ad_check.py          # Vérification Active Directory
-│   │   ├── dns_check.py         # Vérification DNS
-│   │   ├── mysql_check.py       # Test MySQL WMS
-│   │   ├── windows_health.py    # Diagnostic Windows Server
-│   │   └── ubuntu_health.py     # Diagnostic Ubuntu Server
-│   ├── backup_wms/
-│   │   ├── __init__.py
-│   │   ├── sql_dump.py          # Sauvegarde SQL complète
-│   │   ├── csv_export.py        # Export CSV table
-│   │   └── integrity_check.py   # Vérification intégrité
-│   ├── audit_eol/
-│   │   ├── __init__.py
-│   │   ├── network_scan.py      # Scan réseau (nmap/socket)
-│   │   ├── os_detection.py      # Détection OS
-│   │   ├── eol_database.py      # Référentiel EOL
-│   │   └── report_generator.py  # Génération rapport obsolescence
-│   ├── common/
-│   │   ├── __init__.py
-│   │   ├── config_loader.py     # Chargement config + env vars
-│   │   ├── logger.py            # Logs horodatés JSON
-│   │   └── utils.py             # Utilitaires communs
-│   └── cli_menu.py              # Interface interactive principale
-├── config/
-│   ├── config.yaml              # Configuration principale
-│   └── config.example.yaml      # Exemple pour documentation
-├── reports/                     # Sorties générées (JSON, CSV, SQL)
+│   ├── module1_diagnostic.py
+│   ├── module2_backup_wms.py
+│   ├── module3_audit.py
+│   └── ntl_config.json
 ├── backups/                     # Sauvegardes WMS générées
+│   ├── ad_dns/                  # Sauvegardes ad/dns générées
+│   ├── mysql/                   # Sauvegardes mysql générées
+│   ├── windows/                 # Sauvegardes windows générées
+│   ├── ubuntu/                  # Sauvegardes ubuntu générées
+│   └── global/                  # Sauvegardes global générées
 ├── docs/
 │   ├── INSTALL.md               # Guide installation DSI
 │   ├── TECH.md                  # Architecture et choix techniques
 │   └── USAGE.md                 # Guide utilisation détaillé
-├── tests/
-│   ├── test_diagnostic.py       # Tests unitaires diagnostic
-│   ├── test_backup.py           # Tests sauvegarde
-│   └── test_audit.py            # Tests audit EOL
 ├── requirements.txt             # Dépendances Python
-├── systoolbox.py                # Point d'entrée principal
+├── main.py                      # Point d'entrée principal
 ├── .gitignore
 ├── LICENSE
 └── README.md                    # Ce fichier
@@ -180,7 +156,7 @@ NTL-SysToolbox/
 ### Principes architecturaux
 
 - **Modularité** : 3 modules indépendants partageant configuration, logs et codes retour
-- **Configuration centralisée** : Fichier YAML simple + surcharge par variables d'environnement
+- **Configuration centralisée** : Fichier JSON simple + surcharge par variables d'environnement
 - **Multi-plateforme natif** : Fonctionne sans modification sur Windows et Linux
 - **Supervision-ready** : Sorties JSON horodatées + codes retour standardisés (0/1/2)
 - **Sécurité** : Gestion des secrets via variables d'environnement (pas de credentials en dur)
@@ -199,19 +175,18 @@ Confirmer rapidement que les briques critiques du siège sont disponibles et coh
 - **Vérifications** :
   - État des services AD DS (Active Directory Domain Services)
   - État du service DNS Server
-  - Réplication entre contrôleurs de domaine
+  - État du Kerberos
   - Temps de réponse DNS
-  - FSMO roles (optionnel)
 - **Sortie** : OK / WARN / CRIT avec détails
 
 #### 2. Test MySQL WMS
 - **Cible** : Base WMS (WMS-DB: 192.168.10.21)
 - **Vérifications** :
-  - Connectivité TCP (port 3306)
-  - Authentification
-  - Requête test (SELECT 1, temps réponse)
+  - Connectivité TCP (port 3306) & Authentification
+  - Version
+  - Uptime
   - Nombre de connexions actives
-  - Taille de la base de données
+  - Nombre de requêtes totales
 - **Seuils** : 
   - OK < 200ms
   - WARN 200-500ms
@@ -219,17 +194,19 @@ Confirmer rapidement que les briques critiques du siège sont disponibles et coh
 
 #### 3. Diagnostic Windows Server
 - **Informations collectées** :
-  - Version OS complète (Windows Server 2016/2019/2022)
+  - Nom de la machine
+  - Version OS complète (Windows Server 2016/2019/2022/2025)
   - Uptime système
   - Utilisation CPU (moyenne, pic)
   - Utilisation RAM (physique, disponible)
   - Utilisation disques (tous volumes, % utilisé)
   - Services critiques configurables
-- **Méthode** : PowerShell / WMI / wmic
-- **Seuils personnalisables** dans config.yaml
+- **Méthode** : psutil (local) / pypsrp = WinRM/PowerShell (distante)
+
 
 #### 4. Diagnostic Ubuntu Server
 - **Informations collectées** :
+  - Nom de la machine
   - Version OS (Ubuntu 18.04/20.04/22.04/24.04 LTS)
   - Kernel version
   - Uptime système
@@ -237,8 +214,8 @@ Confirmer rapidement que les briques critiques du siège sont disponibles et coh
   - Utilisation CPU (via /proc/stat ou top)
   - Utilisation RAM (total, used, available, swap)
   - Utilisation disques (df -h, tous points de montage)
-- **Méthode** : Commandes système (uptime, free, df, /proc)
-- **Seuils personnalisables** dans config.yaml
+- **Méthode** : psutil (local) / paramiko = SSH (distante) - Commandes système (uptime, free, df, /proc)
+
 
 ### Exemple d'utilisation
 
@@ -248,53 +225,31 @@ python systoolbox.py
 > 1 (Diagnostic)
 
 # En ligne de commande directe
-python systoolbox.py --module diagnostic --target dc01,dc02,wms-db
+python systoolbox.py --module diagnostic --target wms-db
 
-# Diagnostic rapide (check critique uniquement)
-python systoolbox.py --module diagnostic --quick-check
 ```
 
 ### Sortie JSON
 ```json
 {
-  "timestamp": "2026-02-16T20:39:00Z",
+  "timestamp": "2026-02-13T19:40:08.774164",
   "module": "diagnostic",
-  "global_status": "WARNING",
-  "exit_code": 1,
-  "checks": {
-    "ad_dns": {
-      "dc01": {
-        "status": "OK",
-        "ad_service": "Running",
-        "dns_service": "Running",
-        "dns_response_time_ms": 12
-      },
-      "dc02": {
-        "status": "OK",
-        "ad_service": "Running",
-        "dns_service": "Running",
-        "dns_response_time_ms": 15
-      }
-    },
-    "mysql_wms": {
-      "status": "WARNING",
-      "host": "192.168.10.21",
-      "connection": "OK",
-      "response_time_ms": 452,
-      "active_connections": 23,
-      "database_size_mb": 2847
-    },
-    "servers": {
-      "wms-app": {
-        "status": "OK",
-        "os": "Ubuntu 20.04.6 LTS",
-        "uptime_days": 127,
-        "cpu_percent": 34,
-        "ram_percent": 52,
-        "disk_var_percent": 68
+  "checks": [
+    {
+      "type": "MySQL_Database",
+      "host": "10.5.60.20",
+      "port": 3306,
+      "timestamp": "2026-02-13T19:40:08.774190",
+      "status": "OK",
+      "details": {
+        "version": "10.11.14-MariaDB-0ubuntu0.24.04.1",
+        "uptime_seconds": 646873,
+        "uptime_formatted": "7j 11h 41min",
+        "active_connections": 1,
+        "total_queries": 269
       }
     }
-  }
+  ]
 }
 ```
 
@@ -344,20 +299,10 @@ Garantir l'existence, l'intégrité et la traçabilité d'exports logiques de la
 ### Exemple d'utilisation
 
 ```bash
-# Sauvegarde SQL complète via menu
+# Sauvegarde SQL complète et Export CSV d'une table
 python systoolbox.py
 > 2 (Sauvegarde WMS)
-> 1 (Dump SQL complet)
-
-# Export CSV d'une table via menu
-python systoolbox.py
-> 2 (Sauvegarde WMS)
-> 2 (Export CSV)
-> Nom de la table : orders
-
-# Ligne de commande directe
-python systoolbox.py --module backup --type sql --compress
-python systoolbox.py --module backup --type csv --table orders
+> Lancer? (o/n) [o]: 
 ```
 
 ### Sortie JSON de traçabilité
@@ -592,7 +537,7 @@ CentOS                  1         100% (1/1)        0%
 **Objectif** : Valider que les services critiques sont opérationnels avant le début d'activité.
 
 ```bash
-python systoolbox.py --module diagnostic --quick-check --alert-on-critical
+python systoolbox.py --module diagnostic --menu
 ```
 
 **Workflow automatisé** (planificateur de tâches Windows / cron Linux) :
@@ -692,66 +637,31 @@ Action : Email + SMS astreinte
 
 ## ⚙️ Configuration
 
-### Fichier config.yaml
+### Fichier ntl_config.json
 
 ```yaml
 # Configuration NTL-SysToolbox
-version: "1.0"
 
-# Général
-general:
-  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
-  log_format: "json"  # json ou text
-  output_dir: "./reports"
-  timezone: "Europe/Paris"
-
-# Module Diagnostic
-diagnostic:
-  domain_controllers:
-    - host: "192.168.10.10"
-      name: "DC01"
-    - host: "192.168.10.11"
-      name: "DC02"
-  
-  mysql_wms:
-    host: "192.168.10.21"
-    port: 3306
-    database: "wms_production"
-    user: "monitoring"
-    password: "${MYSQL_MONITOR_PASS}"  # Variable d'environnement
-    timeout: 10
-  
-  thresholds:
-    mysql_response_ms:
-      warn: 200
-      crit: 500
-    cpu_percent:
-      warn: 80
-      crit: 95
-    ram_percent:
-      warn: 85
-      crit: 95
-    disk_percent:
-      warn: 80
-      crit: 90
-
-# Module Sauvegarde WMS
-backup:
-  mysql:
-    host: "192.168.10.21"
-    port: 3306
-    database: "wms_production"
-    user: "backup_user"
-    password: "${MYSQL_BACKUP_PASS}"
-  
-  output_dir: "/nas/backups/wms"
-  compression: true  # gzip
-  retention_days: 30  # Rotation automatique
-  
-  csv_export:
-    separator: ";"
-    encoding: "utf-8"
-    include_headers: true
+{
+  "infrastructure": {
+    "dc01_ip": "10.5.60.10",
+    "dc02_ip": "10.5.60.11",
+    "wms_db_host": "10.5.60.20",
+    "wms_db_port": 3306,
+    "wms_db_user": "wms_user",
+    "wms_db_pass": "wms_pass",
+    "windows_default_user": "administrateur",
+    "ubuntu_default_user": "administrateur"
+  },
+  "module2_wms": {
+    "db_name": "wms",
+    "db_host": "10.5.60.20",
+    "db_port": 3306,
+    "db_user": "wms_user",
+    "table_to_export": "stock_moves",
+    "backup_dir": "backups"
+  }
+}
 
 # Module Audit obsolescence
 audit:
@@ -776,30 +686,6 @@ audit:
       vigilance_days: 365   # <12 mois
 ```
 
-### Variables d'environnement
-
-**Secrets sensibles** (ne jamais commiter dans Git) :
-
-```bash
-# Linux/macOS
-export MYSQL_MONITOR_PASS="V0tr3M0tD3P@ss3!"
-export MYSQL_BACKUP_PASS="B@ckupS3cur3P@ss!"
-
-# Windows PowerShell
-$env:MYSQL_MONITOR_PASS="V0tr3M0tD3P@ss3!"
-$env:MYSQL_BACKUP_PASS="B@ckupS3cur3P@ss!"
-
-# Windows CMD
-set MYSQL_MONITOR_PASS=V0tr3M0tD3P@ss3!
-set MYSQL_BACKUP_PASS=B@ckupS3cur3P@ss!
-```
-
-**Fichier .env** (local uniquement, ajouté dans .gitignore) :
-```env
-MYSQL_MONITOR_PASS=V0tr3M0tD3P@ss3!
-MYSQL_BACKUP_PASS=B@ckupS3cur3P@ss!
-```
-
 ---
 
 ## 📊 Sorties et codes retour
@@ -812,16 +698,6 @@ MYSQL_BACKUP_PASS=B@ckupS3cur3P@ss!
 | `1` | **WARNING** | Au moins une alerte (non bloquant) | Monitoring: WARN |
 | `2` | **CRITICAL** | Échec critique détecté | Monitoring: CRIT, alerte |
 
-**Exemple exploitation Bash** :
-```bash
-python systoolbox.py --module diagnostic
-CODE=$?
-case $CODE in
-  0) echo "✅ Tout est OK" ;;
-  1) echo "⚠️ Avertissements détectés" ;;
-  2) echo "🚨 Problème critique!" && alert-team.sh ;;
-esac
-```
 
 ### Formats de sortie
 
@@ -859,12 +735,24 @@ WMS-DB;192.168.10.21;Ubuntu;20.04 LTS;Extended;2025-04-25;68;VIGILANCE
 
 ```
 main (stable, releases tagged)
-  ├── v1.0.0 (tag)
-  └── v1.1.0 (tag)
-dev (intégration continues)
-  ├── feature/ad-replication-check
-  ├── feature/postgresql-support
-  └── bugfix/mysql-timeout
+  ├── v1 (tag)
+  ├── v2 (tag)
+  ├── v3 (tag)
+  ├── v4 (tag)
+  ├── v5 (tag)
+  ├── v6 (tag)
+  ├── v7 (tag)
+  ├── v8 (tag)
+  └── v9 (tag)
+module-1-diagnostique
+  ├── module1_diagnostique.py
+  └── requirements.txt
+module-2-backups_wms
+  ├── module2_wms_backup.py
+  └── requirements.txt
+module-3-audit
+  ├──module3_audit.py
+  └── requirements.txt
 ```
 
 ### Workflow contribution
@@ -913,11 +801,17 @@ python -m pytest --cov=src tests/
 ```
 
 **VMs de test fournies** (EPSI Lab) :
-- **MSPR-GRP1 Windows Server** : 10.5.60.10
+- **MSPR-GRP1 Windows Server 1** : 10.5.60.10
   - Domaine : MSPR-GRP1.lan
-  - Login : Administrateur / Azerty89
+  - Login : Administrateur
+- **MSPR-GRP1 Windows Server 2** : 10.5.60.11
+  - Domaine : MSPR-GRP1.lan
+  - Login : Administrateur
+- **MSPR-GRP1 Windows Client** : 10.5.60.30
+  - Domaine : MSPR-GRP1.lan
+  - Login : Administrateur
 - **MSPR-GRP1 Ubuntu Server** : 10.5.60.20
-  - Login : Administrateur / azerty89
+  - Login : administrateur
 
 ---
 
@@ -992,8 +886,8 @@ Conformément au cahier des charges :
 
 ### Équipe projet
 
-- **Chef de projet** : [Votre nom]
-- **Développeurs** : [Noms équipe]
+- **Gestionnaire git** : Nathan
+- **Développeurs** : Nathan / Mathis / Maxime
 - **Client** : Nord Transit Logistics - Direction IT
 
 ### Ressources
@@ -1047,6 +941,5 @@ Ce projet s'inscrit dans le cadre de la **MSPR (Mise en Situation Professionnell
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![EPSI](https://img.shields.io/badge/Projet-EPSI%20MSPR-orange)](https://www.epsi.fr/)
 
-Made with ❤️ for Nord Transit Logistics
-
+Made in Nathan / Mathis / Maxime
 </div>
