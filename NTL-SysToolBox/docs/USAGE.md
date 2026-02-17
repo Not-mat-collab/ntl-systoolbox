@@ -44,12 +44,6 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-**Windows:**
-```cmd
-python -m venv venv
-venv\Scripts\activate
-```
-
 ### Étape 3: Installer les dépendances
 
 ```bash
@@ -100,7 +94,7 @@ Le fichier `src/ntl_config.json` centralise toutes les configurations.
 
 **Option 1: Via le menu**
 ```bash
-python src/main.py
+python main.py
 # Choisir [C] Configuration JSON
 # Suivre les invites interactives
 ```
@@ -115,20 +109,6 @@ notepad src\ntl_config.json  # Windows
 
 ⚠️ **Ne jamais commiter de mots de passe dans Git!**
 
-**Méthode recommandée: Variables d'environnement**
-
-**Linux/Mac:**
-```bash
-export WMS_DB_PASS="votre_mot_de_passe"
-export MYSQL_ROOT_PASS="root_password"
-```
-
-**Windows:**
-```cmd
-set WMS_DB_PASS=votre_mot_de_passe
-set MYSQL_ROOT_PASS=root_password
-```
-
 **Permissions restrictives:**
 ```bash
 chmod 600 src/ntl_config.json  # Linux/Mac
@@ -141,7 +121,7 @@ chmod 600 src/ntl_config.json  # Linux/Mac
 ### Lancement du menu principal
 
 ```bash
-python src/main.py
+python main.py
 ```
 
 **Menu affiché:**
@@ -180,7 +160,7 @@ Le Module 1 permet de vérifier l'état de santé des infrastructures critiques:
 **Accès:**
 ```bash
 # Via main.py
-python src/main.py
+python main.py
 # Choisir [1] Module 1 - Diagnostic
 
 # Ou directement
