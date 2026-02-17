@@ -981,6 +981,6 @@ print(f"Rapport généré: {len(SITES)} sites vérifiés")
 
 ---
 
-**Version:** 2.9.0  
+**Version:** 10  
 **Dernière mise à jour:** 2026-02-17  
-**Auteur:** Équipe MSPR ASRBD
+**Auteur:** Équipe MSPR GRP 1
