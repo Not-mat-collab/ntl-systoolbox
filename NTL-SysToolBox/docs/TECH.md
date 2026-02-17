@@ -25,18 +25,18 @@ L'outil répond à 3 enjeux opérationnels:
 
 ```
 ┌─────────────────────────────────────────┐
-│         main.py (Orchestrateur)        │
-│    • Menu principal interactif CLI     │
-│    • Gestion config JSON centralisée   │
-│    • Dispatch vers modules autonomes   │
+│         main.py (Orchestrateur)         │
+│    • Menu principal interactif CLI      │
+│    • Gestion config JSON centralisée    │
+│    • Dispatch vers modules autonomes    │
 └──────────┬──────────────────────────────┘
            │
     ┌──────┴──────────┬─────────────────┐
     │                 │                 │
-┌───▼────────┐  ┌────▼────────┐  ┌────▼────────┐
+┌───▼────────┐  ┌─────▼───────┐  ┌──────▼──────┐
 │  MODULE 1  │  │  MODULE 2   │  │  MODULE 3   │
-│ DIAGNOSTIC │  │ WMS BACKUP  │  │AUDIT (TODO) │
-│ (Autonome) │  │ (Autonome)  │  │             │
+│ DIAGNOSTIC │  │ WMS BACKUP  │  │   AUDIT     │
+│ (Autonome) │  │ (Autonome)  │  │ (Autonome)  │
 └────────────┘  └─────────────┘  └─────────────┘
 ```
 
@@ -278,7 +278,7 @@ Module3_Audit
 psutil>=5.8.0          # Monitoring système cross-platform
 pymysql>=1.0.0         # Driver MySQL pur Python
 paramiko>=2.8.0        # SSH client pour Linux distant
-pypsrp>=0.8.0          # WinRM client pour Windows distant
+pypsrp>=0.8.1          # WinRM client pour Windows distant
 ```
 
 **Justification des versions**:
@@ -437,7 +437,6 @@ Horodatage: 2026-02-17T18:30:00
 ```
 NTL-SysToolbox/
 ├── src/
-│   ├── main.py                    # Orchestrateur principal
 │   ├── module1_diagnostic.py      # Module 1 autonome
 │   ├── module2_wms_backup.py      # Module 2 autonome
 │   └── ntl_config.json            # Configuration centralisée
@@ -459,6 +458,7 @@ NTL-SysToolbox/
 │   ├── USAGE.md                   # Guide utilisateur
 │   └── LICENCE.md                 # MIT License
 │
+├── main.py                        # Orchestrateur principal
 ├── requirements.txt               # Dépendances Python
 └── README.md                      # Documentation entrée
 ```
@@ -469,21 +469,14 @@ NTL-SysToolbox/
 
 ### Roadmap
 
-**Version 2.0** (Q2 2026):
-- [ ] Module 3: Audit d'obsolescence (endoflife.date API)
+**Version 2.1** (Q2 2026):
 - [ ] Support clés SSH (paramiko key-based auth)
 - [ ] Chiffrement config (python-keyring)
 - [ ] Logs rotatifs (logging + RotatingFileHandler)
 
-**Version 2.5** (Q3 2026):
-- [ ] API REST (FastAPI) pour intégration Zabbix
+**Version 2.2** (Q3 2026):
 - [ ] Dashboard web (Dash/Streamlit)
 - [ ] Notifications (email/Slack/Teams)
-
-**Version 3.0** (Q4 2026):
-- [ ] Support Ansible playbook
-- [ ] Conteneurisation Docker
-- [ ] CI/CD GitHub Actions
 
 ---
 
@@ -518,7 +511,7 @@ NTL-SysToolbox/
 
 ## Auteur et maintenance
 
-**Développeur**: Équipe MSPR ASRBD 2025-2026  
+**Développeur**: Équipe MSPR GRP 1 2025-2026  
 **Client**: Nord Transit Logistics (NTL)  
 **Licence**: MIT License  
 **Contact**: Administrateur Systèmes & Réseaux
