@@ -59,7 +59,7 @@ pip install -r requirements.txt
 ### Étape 4: Vérifier l'installation
 
 ```bash
-python src/main.py
+python main.py
 ```
 
 Vous devriez voir le menu principal s'afficher.
@@ -465,7 +465,7 @@ Le Module 2 effectue deux types de sauvegardes de la base WMS:
 
 **Via main.py:**
 ```bash
-python src/main.py
+python main.py
 # Choisir [2] Module 2 - Sauvegarde WMS
 ```
 
@@ -625,11 +625,11 @@ fi
 
 ---
 
-## Module 3 - Audit d'obsolescence (TODO)
+## Module 3 - Audit d'obsolescence
 
 ### Statut
 
-⚠️ **Non implémenté dans la version actuelle (v2.9.0)**
+⚠️ **Non implémenté dans la version actuelle (v10)**
 
 ### Fonctionnalités prévues
 
