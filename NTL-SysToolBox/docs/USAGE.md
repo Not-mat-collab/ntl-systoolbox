@@ -824,6 +824,7 @@ mkdir -p backups/{ad_dns,mysql,windows,ubuntu,global,wms}
 
 ### Documentation
 
+- **INSTALL.md** - Installation du programme détaillé
 - **TECH.md** - Architecture et choix techniques
 - **README.md** - Introduction et quickstart
 - **LICENCE.md** - MIT License
