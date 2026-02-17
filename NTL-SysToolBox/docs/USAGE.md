@@ -687,52 +687,6 @@ schtasks /create /tn "NTL Diagnostic" /tr "C:\ntl-systoolbox\venv\Scripts\python
 
 ---
 
-## Intégration Zabbix
-
-### Création d'un item Zabbix
-
-**Template:** `NTL-SysToolbox`
-
-**Item 1: AD/DNS DC01 Health**
-```yaml
-Type: External check
-Key: ntl.diag.addns[{HOST.IP}]
-Type of information: Numeric (unsigned)
-Interval: 5m
-```
-
-**Script externe (`/usr/lib/zabbix/externalscripts/ntl_diag_addns.sh`):**
-```bash
-#!/bin/bash
-IP=$1
-cd /opt/ntl-systoolbox
-source venv/bin/activate
-python src/module1_diagnostic.py ad-dns $IP --json | jq -r '.checks[0].status' | grep -q "OK" && echo 1 || echo 0
-```
-
-**Trigger:**
-```
-{NTL-SysToolbox:ntl.diag.addns[{HOST.IP}].last()}=0
-```
-
-**Item 2: MySQL WMS Uptime**
-```yaml
-Type: External check
-Key: ntl.mysql.uptime
-Interval: 10m
-```
-
-**Script:**
-```bash
-#!/bin/bash
-cd /opt/ntl-systoolbox
-source venv/bin/activate
-export MYSQL_PASS="secret"
-python src/module1_diagnostic.py mysql --json | jq -r '.checks[0].details.uptime_seconds'
-```
-
----
-
 ## Dépannage
 
 ### Erreur: "pypsrp non installé"
