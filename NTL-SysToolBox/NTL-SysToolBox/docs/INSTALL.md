@@ -185,7 +185,25 @@ pip --version
 3. ✅ **Cocher "Add Python to PATH"**
 4. Installer
 
-### 3.3 Clonage du projet
+### 3.2 Installation Nmap
+
+**Option A: Winget (Windows 10 1809+ / Windows Server 2019+)**
+
+```powershell
+# Ouvrir PowerShell en Administrateur
+winget install nmap
+
+# Vérification
+nmap --version
+```
+
+**Option B: Installateur officiel**
+
+1. Télécharger nmap depuis [nmap.org](https://nmap.org/dist/nmap-7.98-setup.exe)
+2. Exécuter l'installateur
+3. Installer
+
+### 3.4 Clonage du projet
 
 **Option A: Clonage Git**
 
