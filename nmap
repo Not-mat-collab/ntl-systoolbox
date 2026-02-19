@@ -1,0 +1,1 @@
+[System.Environment]::SetEnvironmentVariable('Path', $env:Path + ";C:\Program Files (x86)\Nmap", [System.EnvironmentVariableTarget]::Machine)
