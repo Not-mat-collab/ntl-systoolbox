@@ -24,11 +24,11 @@ Toutes les dépendances sont listées dans `requirements.txt`:
 - `pymysql` - Connexion MySQL/MariaDB
 - `paramiko` - Client SSH pour Linux distant
 - `pypsrp` - Client WinRM pour Windows distant
-- python-nmap>=0.7.1
-- pandas>=2.1.4`
-- python-dateutil>=2.8.2
-- requests>=2.31.0
-- openpyxl>=3.1.2
+- `python-nmap` 0.7.1
+- `pandas` 2.1.4`
+- `python-dateutil` 2.8.2
+- `requests` 2.31.0
+- `openpyxl` 3.1.2
 
 
 ---
