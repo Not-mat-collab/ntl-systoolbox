@@ -17,6 +17,9 @@ from typing import List, Dict, Optional, Tuple
 import requests
 from requests.exceptions import RequestException
 
+# ── Dossier de sortie centralisé ──────────────────────────────────────
+OUTPUT_DIR = Path("backups/audit")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 class NetworkScanner:
     def __init__(self):
@@ -1068,7 +1071,7 @@ def process_csv(csv_path: str, output_report: str = None, format: str = 'txt'):
         component['days_until_eol'] = days_until_eol
         components.append(component)
     generator = ReportGenerator()
-    report_path = output_report or csv_path.replace('.csv', '_report.txt')
+    report_path = output_report or str(OUTPUT_DIR / f"{Path(csv_path).stem}_report.txt")
     generator.generate_report(components, eol_db, report_path, format)
     print(f"\nRapport généré: {report_path}")
     stats = {
@@ -1128,7 +1131,7 @@ def menu_scan_network():
     if export_csv == 'o' or export_csv == 'oui' or export_csv == 'y' or export_csv == 'yes':
         output_csv = input("Nom du fichier CSV [scan_results.csv]: ").strip()
         if not output_csv:
-            output_csv = "scan_results.csv"
+            output_csv = str(OUTPUT_DIR / "scan_results.csv")
     print("\nDémarrage du scan...")
     print("(Cela peut prendre plusieurs minutes selon la taille du réseau)\n")
     try:
@@ -1238,3 +1241,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
