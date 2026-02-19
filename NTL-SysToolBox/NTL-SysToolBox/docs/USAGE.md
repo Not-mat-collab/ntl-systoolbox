@@ -139,9 +139,9 @@ python main.py
 
 MENU PRINCIPAL
 ----------------------------------------------------------------------
- [1] Module 1 - Diagnostic (menu autonome)
+ [1] Module 1 - Diagnostic Infrastructure
  [2] Module 2 - Sauvegarde WMS
- [3] Module 3 - Audit (À venir)
+ [3] Module 3 - Audit Obsolescence
  [C] Configuration JSON
  [0] Quitter
 ----------------------------------------------------------------------
@@ -613,23 +613,34 @@ fi
 
 ## Module 3 - Audit d'obsolescence
 
-### Statut
-
-⚠️ **Non implémenté dans la version actuelle (v10)**
-
-### Fonctionnalités prévues
-
-Le Module 3 permettra de:
-1. Scanner une plage réseau (ex: `192.168.10.0/24`)
-2. Identifier l'OS des machines détectées
-3. Interroger une base EOL (End-of-Life) publique
-4. Générer un rapport d'obsolescence
-
-### Usage prévu
+**Lancer le module 3**
 
 ```bash
-python src/module3_audit.py --network 192.168.10.0/24
+python src/module3_audit.py
 ```
+ou
+
+sur `main.py`
+
+`[3] Module 3 - Audit Obsolescence`
+
+**CHOIX DU MODULE 3**
+[1] Scanner une plage réseau
+[2] Lister les versions d'un OS et leurs dates EOL
+[3] Analyser un fichier CSV
+[0] Quitter
+
+**LISTER LES VERSIONS D'UN OS**
+Sélectionnez la famille d'OS:
+[1] Windows
+[2] Linux
+[3] macOS
+
+**IMPORT D'UN FICHIER CSV**
+Sélectionnez le format du rapport:
+[1] TXT (recommandé)
+[2] CSV
+[3] JSON
 
 **Rapport généré:**
 ```csv
