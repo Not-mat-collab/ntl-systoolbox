@@ -142,7 +142,8 @@ NTL-SysToolbox/
 │   ├── windows/                 # Sauvegardes windows générées
 │   ├── ubuntu/                  # Sauvegardes ubuntu générées
 │   ├── global/                  # Sauvegardes global générées
-│   └── wms/                     # Sauvegardes module2 générées
+│   ├── wms/                     # Sauvegardes module2 générées
+│   └── audit/                   # Sauvegardes module3 générées
 ├── docs/
 │   ├── INSTALL.md               # Guide installation DSI
 │   ├── TECH.md                  # Architecture et choix techniques
