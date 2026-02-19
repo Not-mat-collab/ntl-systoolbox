@@ -195,6 +195,11 @@ winget install nmap
 
 # Vérification
 nmap --version
+
+# Ajouter au Path via PowerShell
+[System.Environment]::SetEnvironmentVariable('Path', $env:Path + ";C:\Program Files (x86)\Nmap", [System.EnvironmentVariableTarget]::Machine)
+
+# Reboot le serveur
 ```
 
 **Option B: Installateur officiel**
