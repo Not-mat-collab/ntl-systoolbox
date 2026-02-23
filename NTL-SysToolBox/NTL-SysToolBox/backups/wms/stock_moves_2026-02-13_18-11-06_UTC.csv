@@ -1,9 +1,0 @@
-move_id,product_name,from_location,to_location,quantity,move_type,moved_at
-1,Widget A,Réception,Stock Central,100.00,IN,2026-01-10 08:30:00
-5,Widget A,Réception,Stock Central,100.00,IN,2026-01-10 08:30:00
-2,Widget B,Stock Central,Zone Expédition,20.00,OUT,2026-01-11 14:15:00
-6,Widget B,Stock Central,Zone Expédition,20.00,OUT,2026-01-11 14:15:00
-3,Gadget C,Réception,Stock Central,50.00,IN,2026-01-12 09:00:00
-7,Gadget C,Réception,Stock Central,50.00,IN,2026-01-12 09:00:00
-4,Widget A,Stock Central,Zone Expédition,10.00,OUT,2026-01-13 16:45:00
-8,Widget A,Stock Central,Zone Expédition,10.00,OUT,2026-01-13 16:45:00
