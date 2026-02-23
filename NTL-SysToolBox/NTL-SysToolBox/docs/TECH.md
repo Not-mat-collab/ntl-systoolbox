@@ -451,7 +451,12 @@ eol_data = {
 psutil>=5.8.0          # Monitoring système cross-platform
 pymysql>=1.0.0         # Driver MySQL pur Python
 paramiko>=2.8.0        # SSH client pour Linux distant
-pypsrp>=0.8.0          # WinRM client pour Windows distant
+pypsrp>=0.8.1          # WinRM client pour Windows distant
+python-nmap>=0.7.1
+pandas>=2.1.4
+python-dateutil>=2.8.2
+requests>=2.31.0
+openpyxl>=3.1.2
 ```
 
 **Justification des versions**:
