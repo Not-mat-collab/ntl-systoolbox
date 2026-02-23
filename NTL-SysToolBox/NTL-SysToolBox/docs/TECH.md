@@ -1,45 +1,32 @@
-# NTL-SysToolbox - Architecture et Choix Techniques
+# Documentation Technique - NTL-SysToolbox
 
-## Vue d'ensemble
+## Architecture globale
 
-**NTL-SysToolbox** est un outil CLI multi-plateforme développé en **Python 3.8+** pour industrialiser les opérations d'exploitation IT chez Nord Transit Logistics (NTL).
+### Vue d'ensemble
 
-### Contexte métier
-
-NTL est une PME logistique opérant 4 sites (Lille, Lens, Valenciennes, Arras) avec:
-- **~240 employés** (300 en haute saison)
-- **Horaires critiques**: 5h30-18h30 (zéro downtime acceptable)
-- **Services centralisés**: Active Directory, DNS, WMS MySQL (192.168.10.21)
-- **Fentres de maintenance**: Nocturnes uniquement
-
-L'outil répond à 3 enjeux opérationnels:
-1. **Diagnostic rapide** des services critiques (AD/DNS/MySQL/serveurs)
-2. **Sauvegardes traçables** de la base WMS (cœur métier)
-3. **Audit d'obsolescence** réseau (EOL tracking)
-
----
-
-## Architecture logicielle
-
-### Principes de conception
+NTL-SysToolbox est un outil modulaire Python 3.9+ conçu pour l'exploitation quotidienne de l'infrastructure Nord Transit Logistics. L'architecture repose sur 3 modules indépendants partageant une configuration centralisée et des bibliothèques communes.
 
 ```
-┌─────────────────────────────────────────┐
-│         main.py (Orchestrateur)         │
-│    • Menu principal interactif CLI      │
-│    • Gestion config JSON centralisée    │
-│    • Dispatch vers modules autonomes    │
-└──────────┬──────────────────────────────┘
-           │
-    ┌──────┴──────────┬─────────────────┐
-    │                 │                 │
-┌───▼────────┐  ┌─────▼───────┐  ┌──────▼──────┐
-│  MODULE 1  │  │  MODULE 2   │  │  MODULE 3   │
-│ DIAGNOSTIC │  │ WMS BACKUP  │  │   AUDIT     │
-│ (Autonome) │  │ (Autonome)  │  │ (Autonome)  │
-└────────────┘  └─────────────┘  └─────────────┘
+┌─────────────────────────────────────────────────────┐
+│              main.py (Point d'entrée)               │
+│           Menu interactif + Orchestration           │
+└───────────┬─────────────────────────────────────────┘
+            │
+    ┌───────┴────────┬─────────────────┬
+    │                │                 │              
+┌───▼────┐  ┌────────▼───────┐  ┌─────▼─────────┐     
+│Module 1│  │   Module 2     │  │   Module 3    │     
+│Diagno- │  │ Sauvegarde WMS │  │Audit obso-    │     
+│ stic   │  │                │  │lescence       │     
+└────────┘  └────────────────┘  └───────────────┘    
+    │                │                 │          
+    └────────────────┴─────────────────┴
+                     │
+        ┌────────────┴────────────┐
+        │   ntl_config.json       │
+        │   (Configuration)       │
+        └─────────────────────────┘
 ```
-
 ### Modularité
 
 **Architecture découplée**:
@@ -52,47 +39,36 @@ L'outil répond à 3 enjeux opérationnels:
 
 ## Module 1 - Diagnostic
 
-### Stack technique
-
-| Composant | Technologie | Justification |
-|-----------|-------------|---------------|
-| **Monitoring local** | `psutil` | Cross-platform (Linux/Windows), stable, exhaustif (CPU/RAM/disque/uptime) |
-| **Monitoring distant Windows** | `pypsrp` | Protocole WinRM natif, authentification sécurisée, exécution PowerShell distante |
-| **Monitoring distant Linux** | `paramiko` | Client SSH pur Python, compatible OpenSSH, pas de dépendances système |
-| **Tests réseau** | `socket` (stdlib) | TCP port checking léger, pas de dépendances externes |
-| **Database health** | `pymysql` | Driver MySQL pur Python, compatible MariaDB 10.x |
-
-### Architecture des vérifications
+### Architecture
 
 ```python
-DiagnosticModule
-├── check_ad_dns_service(ip)      # Ports 53/389/88
-│   ├── _test_dns()               # Résolution DNS
-│   ├── _test_port(389, "LDAP")  # Authentification AD
-│   └── _test_port(88, "Kerberos")
+module1_diagnostic.py
+├── ADDNSChecker()          # Vérification contrôleurs de domaine
+│   ├── check_ad_service()  # État services AD DS
+│   ├── check_dns_service() # État service DNS
+│   └── test_dns_query()    # Performance DNS
 │
-├── check_mysql_database()
-│   ├── Connexion MySQL
-│   ├── SELECT VERSION()
-│   ├── SHOW GLOBAL STATUS
-│   └── Métriques: uptime, connexions, queries
+├── MySQLChecker()          # Test base WMS
+│   ├── connect()           # Connexion MySQL
+│   ├── get_version()       # Version MySQL/MariaDB
+│   └── measure_latency()   # Latence requête
 │
-├── check_windows_server()
-│   ├── Mode local: psutil
-│   └── Mode distant: pypsrp + PowerShell
-│       ├── Get-WmiObject Win32_OperatingSystem
-│       ├── Get-WmiObject Win32_Processor
-│       └── Get-WmiObject Win32_LogicalDisk
+├── WindowsServerInfo()     # Synthèse Windows
+│   ├── get_os_info()       # OS, build, version
+│   ├── get_uptime()        # Durée de fonctionnement
+│   ├── get_cpu_usage()     # Utilisation CPU
+│   ├── get_memory_info()   # RAM physique/disponible
+│   └── get_disk_info()     # Espaces disques
 │
-└── check_ubuntu_server()
-    ├── Mode local: psutil
-    └── Mode distant: paramiko + SSH
-        ├── lsb_release -d
-        ├── free -m
-        └── df -h
+└── UbuntuServerInfo()      # Synthèse Ubuntu
+    ├── get_os_info()       # Distribution, kernel
+    ├── get_uptime()        # Uptime système
+    ├── get_load_average()  # Load average
+    ├── get_cpu_usage()     # CPU via /proc/stat
+    ├── get_memory_info()   # RAM + swap
+    └── get_disk_info()     # df -h tous montages
 ```
-
-### Choix technique: pypsrp vs SSH pour Windows
+### Choix technique: pypsrp pour Windows
 
 **Pourquoi pypsrp (WinRM) ?**
 - **Natif Microsoft**: Protocole officiel de gestion à distance Windows
@@ -100,12 +76,7 @@ DiagnosticModule
 - **Privilégié**: Accès direct aux WMI/CIM objects
 - **Pas de configuration supplémentaire**: WinRM activé par défaut sur Windows Server
 
-**Alternatives écartées**:
-- SSH (OpenSSH-Server): Nécessite installation manuelle
-- RPC/DCOM: Complexe, ancienne génération
-- Ansible WinRM: Overhead inutile (dépendances lourdes)
-
-### Choix technique: paramiko vs Fabric pour Linux
+### Choix technique: paramiko pour Linux
 
 **Pourquoi paramiko ?**
 - **Léger**: Aucune dépendance externe (100% Python)
@@ -113,126 +84,328 @@ DiagnosticModule
 - **Compatible**: OpenSSH 6.x+, aucune config serveur spéciale
 - **Erreurs granulaires**: Détection précise des échecs SSH
 
-**Alternatives écartées**:
-- Fabric: Overhead inutile (orchestration complexe)
-- subprocess + ssh CLI: Dépend de l'installation locale de ssh
+### Technologies
+
+| Composant | Bibliothèque | Justification |
+|-----------|--------------|---------------|
+| AD/DNS | `pywin32` (Windows) | Accès natif WMI/PowerShell |
+| MySQL | `pymysql` | Driver Python pur, compatible MariaDB |
+| Windows | `psutil` + `pypsrp` | Multi-plateforme + WinRM distant |
+| Ubuntu | `psutil` + `paramiko` | SSH pour accès distant |
 
 ---
 
 ## Module 2 - Sauvegarde WMS
 
-### Stack technique
+### Architecture
 
-| Composant | Technologie | Justification |
-|-----------|-------------|---------------|
-| **Driver MySQL** | `pymysql` | Pur Python, compatible MariaDB 10.x (WMS backend) |
-| **Export SQL** | Dump logique | SHOW CREATE TABLE + INSERT INTO, restauration simple |
-| **Export CSV** | `csv` (stdlib) | Format universel, ingestion dans BI/Excel |
-| **Intégrité** | `hashlib.sha256` | Checksum cryptographique pour validation |
-
-### Architecture de la sauvegarde
-
-```
-Module2_WMS_Backup
-│
-├── Connexion MySQL
-│   ├── Host: 10.5.60.20:3306
-│   ├── Database: wms
-│   └── User: wms_user
-│
-├── dump_sql() → wms_dump_2026-02-17_18-30-00_UTC.sql
-│   ├── SHOW CREATE TABLE (toutes les tables)
-│   ├── SELECT * FROM (chaque table)
-│   └── INSERT INTO (données complètes)
-│
-├── export_csv() → stock_moves_2026-02-17_18-30-00_UTC.csv
-│   ├── JOIN products/locations
-│   └── Colonnes: move_id, product_name, from/to locations, quantity, move_type
-│
-└── Métadonnées JSON
-    ├── sha256: 7a3f9e2c...
-    ├── size_bytes: 2456789
-    ├── duration_ms: 1342
-    └── status: OK/WARNING/CRITICAL
+```python
+module2_backup_wms.py
+├── WMSBackup()
+│   ├── dump_sql()          # mysqldump complet
+│   │   ├── Exec: mysqldump --single-transaction
+│   │   ├── Compression: gzip optionnel
+│   │   └── Nommage: wms_backup_YYYYMMDD_HHmmss.sql
+│   │
+│   ├── export_table_csv()  # Export CSV d'une table
+│   │   ├── Query: SELECT * FROM {table}
+│   │   ├── Format: CSV avec headers
+│   │   └── Nommage: {table}_export_YYYYMMDD_HHmmss.csv
+│   │
+│   ├── verify_backup()     # Intégrité post-backup
+│   │   ├── Check: Taille > 0
+│   │   ├── Hash: SHA256 calculé
+│   │   └── JSON log généré
+│   │
+│   └── rotate_backups()    # Rotation automatique
+│       └── Keep: N dernières sauvegardes
 ```
 
-### Choix technique: Dump logique vs binaire
+### Sécurité des sauvegardes
 
-**Pourquoi dump logique (SQL textuel) ?**
-- **Portable**: Indépendant de la version MySQL/MariaDB
-- **Restauration sélective**: Possible de ne restaurer que certaines tables
-- **Audit humain**: Fichier SQL lisible en cas de besoin
-- **Compatible cross-platform**: Pas de dépendance binaire
-
-**Alternatives écartées**:
-- mysqldump CLI: Nécessite installation MySQL client
-- Physical backup (InnoDB files): Nécessite arrêt du serveur
-- Binary logs: Complexe, nécessite configuration serveur
-
-### Traçabilité et intégrité
-
-**Chaque sauvegarde produit**:
+**Fichier de log JSON** (exemple):
 ```json
 {
-  "schema_version": "1.0",
-  "timestamp_utc": "2026-02-17T18:30:00Z",
-  "artifacts": {
-    "sql_dump": {
-      "file": "wms_dump_2026-02-17_18-30-00_UTC.sql",
-      "size_bytes": 2456789,
-      "sha256": "7a3f9e2c...",
-      "status": "OK"
-    },
-    "csv_export": {
-      "file": "stock_moves_2026-02-17_18-30-00_UTC.csv",
-      "rows_exported": 12453,
-      "sha256": "b4e6c1a5...",
-      "status": "OK"
-    }
-  },
-  "exit_code": 0
+  "timestamp": "2026-02-16T21:05:00Z",
+  "operation": "sql_dump",
+  "status": "SUCCESS",
+  "backup": {
+    "filename": "wms_backup_20260216_210500.sql.gz",
+    "size_mb": 43.69,
+    "hash_sha256": "a3f5e8c9d2b1f4a7...",
+    "duration_seconds": 23.4
+  }
 }
 ```
-
 **Codes de sortie**:
 - `0` = OK: Sauvegarde complète réussie
 - `1` = WARNING: Partielle (ex: table vide)
 - `2` = CRITICAL: Échec total
 - `3` = UNKNOWN: Erreur inattendue
 
+**Avantages**:
+- Traçabilité complète (horodatage, taille, hash)
+- Vérification intégrité (comparaison hash)
+- Audit post-opération (JSON parsable)
+
+### Technologies
+
+| Composant | Outil | Justification |
+|-----------|-------|---------------|
+| SQL dump | `mysqldump` | Standard industriel MySQL |
+| CSV export | `pymysql` + `pandas` | Manipulation DataFrame |
+| Compression | `gzip` (stdlib) | Natif Python, pas de dépendance |
+| Hash | `hashlib` (stdlib) | SHA256 intégré |
+
 ---
 
-## Module 3 - Audit d'obsolescence (TODO)
+## Module 3 - Audit d'obsolescence
 
-### Stack technique prévu
+### Architecture complète
 
-| Composant | Technologie | Justification |
-|-----------|-------------|---------------|
-| **Scan réseau** | `scapy` ou `nmap` | Détection active des hosts |
-| **OS fingerprinting** | `python-nmap` | Identification des versions |
-| **EOL database** | API publique (endoflife.date) | Référentiel officiel des dates de fin de vie |
-| **Rapport** | CSV + JSON | Format structuré pour alerting |
-
-### Architecture prévue
-
+```python
+module3_audit.py
+├── NetworkScanner()                    # Découverte réseau
+│   ├── scan_range(ip_range, ports)   # Scan nmap avec OS detection
+│   │   ├── nmap -sS -O --osscan-limit
+│   │   ├── Ports: 22,80,443,3389,135,139,445
+│   │   └── Timeout: configurable
+│   │
+│   ├── _get_hostname(ip)              # Résolution DNS inverse
+│   ├── _get_mac_address(ip)           # Extraction adresse MAC
+│   ├── _get_vendor(ip)                # Vendor OUI lookup
+│   ├── _get_open_ports(ip)            # Liste ports ouverts
+│   │
+│   ├── _get_os_info(ip)               # Détection OS nmap
+│   │   ├── Parse osmatch (meilleur accuracy)
+│   │   ├── Parse osclass (vendor, type, osfamily)
+│   │   └── Extraction build_number Windows
+│   │
+│   ├── _extract_windows_version()     # Normalisation Windows
+│   │   ├── Build >= 22000 → Windows 11
+│   │   ├── Build >= 10240 → Windows 10
+│   │   ├── Server 2016/2019/2022 (build match)
+│   │   └── Regex: "windows server 2019"
+│   │
+│   ├── _extract_linux_version()       # Normalisation Linux
+│   │   ├── Ubuntu: regex "ubuntu 22.04"
+│   │   ├── Debian: regex "debian 11"
+│   │   ├── CentOS: regex "centos 8"
+│   │   └── RHEL: regex "rhel 9"
+│   │
+│   ├── _extract_macos_version()       # Normalisation macOS
+│   │   └── Regex: "mac os x 13.5"
+│   │
+│   └── _simple_ping_scan()            # Fallback ping si nmap échoue
+│
+├── OSDetector()                        # Détection OS avancée
+│   ├── detect_os(ip, ports)           # Méthode principale
+│   │   └── Itère sur méthodes jusqu'à succès
+│   │
+│   ├── _detect_via_ssh_banner()       # SSH banner grabbing
+│   │   ├── Connect port 22, recv 1024 bytes
+│   │   ├── Parse: "OpenSSH_8.2p1 Ubuntu-4ubuntu0.5"
+│   │   └── Extract: Ubuntu 20.04
+│   │
+│   ├── _detect_via_http_header()      # HTTP Server header
+│   │   ├── GET / HTTP/1.1
+│   │   ├── Parse: "Server: Microsoft-IIS/10.0"
+│   │   └── Map IIS version → Windows Server
+│   │
+│   ├── _detect_via_smb()              # SMB negotiation
+│   │   ├── Connect port 445
+│   │   ├── Send SMB negotiate packet
+│   │   ├── Parse response: "Windows 10.0"
+│   │   └── Extract version
+│   │
+│   ├── _detect_via_banner()           # Generic banner grab
+│   │   └── Tentative sur ports communs
+│   │
+│   ├── normalize_os_version()         # Normalisation finale
+│   │   ├── Windows: "Windows 10", "Windows Server 2019"
+│   │   ├── Linux: "Ubuntu 22.04", "Debian 11"
+│   │   └── macOS: "macOS 13.5"
+│   │
+│   └── _iis_to_windows_version()      # Mapping IIS → Windows
+│       ├── IIS 10.0 → Server 2016/2019/2022
+│       ├── IIS 8.5 → Server 2012 R2
+│       └── IIS 8.0 → Server 2012
+│
+├── EOLDatabase()                       # Base de données EOL
+│   ├── _load_eol_data()               # Chargement données statiques
+│   │   ├── Windows: 11, 10, Server 2022/2019/2016/2012
+│   │   ├── Linux: Ubuntu 24.04/22.04/20.04/18.04
+│   │   │          Debian 12/11/10/9
+│   │   │          CentOS 9/8/7
+│   │   │          RHEL 9/8/7
+│   │   └── macOS: Sonoma/Ventura/Monterey/Big Sur
+│   │
+│   ├── get_eol_info(os_family, version)  # Recherche info
+│   │   └── Return: {release_date, eol_date, extended, status}
+│   │
+│   ├── get_status(eol_info)           # Calcul statut
+│   │   ├── Supported (EOL > 365j)
+│   │   ├── Warning (EOL < 365j)
+│   │   ├── Soon EOL (EOL < 90j)
+│   │   ├── Extended Support (mainstream passé)
+│   │   ├── EOL (date dépassée)
+│   │   └── Unknown (non référencé)
+│   │
+│   ├── get_days_until_eol()           # Calcul jours restants
+│   │   ├── today = date.today()
+│   │   ├── delta = eol_date - today
+│   │   └── return delta.days
+│   │
+│   └── list_all_versions(os_family)   # Liste complète versions
+│       └── Return: Liste triée par release_date
+│
+├── CSVProcessor()                      # Import/Export CSV
+│   ├── read_csv(csv_path)             # Lecture CSV
+│   │   ├── Détection séparateur (,;tab)
+│   │   ├── Normalisation colonnes (lowercase)
+│   │   └── Return: pandas DataFrame
+│   │
+│   ├── validate_data(df)              # Validation données
+│   │   ├── Check colonnes requises: ip, os_family, os_version
+│   │   ├── Validation IPs (ipaddress.ip_address)
+│   │   └── Raise ValueError si invalide
+│   │
+│   ├── process_components(df)         # Conversion DataFrame
+│   │   └── Return: List[Dict] composants
+│   │
+│   └── export_to_csv(data, path)      # Export enrichi
+│       ├── Colonnes: IP,Hostname,OS Family,OS Version,
+│       │             Status,EOL Date,Days Until EOL
+│       └── Séparateur: ,
+│
+└── ReportGenerator()                   # Génération rapports
+    ├── generate_report(components, format)  # Méthode principale
+    │   ├── format='txt' → _generate_text_report()
+    │   ├── format='csv' → _generate_csv_report()
+    │   └── format='json' → _generate_json_report()
+    │
+    ├── _analyze_components()           # Statistiques globales
+    │   ├── Count by status (supported/eol/warning/...)
+    │   ├── Count by OS family (Windows/Linux/macOS)
+    │   └── Identify critical (EOL ou soon_eol)
+    │
+    ├── _generate_text_report()         # Format TXT
+    │   ├── Header avec date génération
+    │   ├── Statistiques globales
+    │   ├── Section "Attention immédiate" (EOL/soon_eol)
+    │   └── Détail tous composants (tableau)
+    │
+    ├── _generate_csv_report()          # Format CSV
+    │   ├── Headers: IP,Hostname,OS Family,Version,Status,EOL,Days
+    │   └── Une ligne par composant
+    │
+    └── _generate_json_report()         # Format JSON
+        ├── generation_date: ISO 8601
+        ├── statistics: {...}
+        └── components: [{...}, {...}]
 ```
-Module3_Audit
-│
-├── Scan réseau (192.168.10.0/24, 20.0/24, 30.0/24, 40.0/24)
-│   └── Détection hosts actifs
-│
-├── OS Fingerprinting
-│   ├── TCP/IP stack analysis
-│   └── Service version detection
-│
-├── EOL Lookup (endoflife.date API)
-│   ├── Windows Server 2012 R2 → EOL: 2023-10-10
-│   └── Ubuntu 18.04 LTS → EOL: 2023-05-31
-│
-└── Rapport
-    ├── audit_2026-02-17.csv
-    └── Criticité: CRITICAL/WARNING/OK
+
+### Technologies
+
+| Composant | Bibliothèque | Version | Justification |
+|-----------|--------------|---------|---------------|
+| Scan réseau | `python-nmap` | 0.7.1 | Wrapper Python pour nmap |
+| Détection OS | `nmap` (binaire) | 7.80+ | Standard industrie pour OS fingerprinting |
+| Réseau IP | `ipaddress` | stdlib | Validation et manipulation CIDR |
+| Socket | `socket` | stdlib | Banner grabbing bas niveau |
+| HTTP | `requests` | 2.31.0 | Client HTTP avec SSL/TLS |
+| SSH | `paramiko` | 3.3.1 | Client SSH Python (si besoin futur) |
+| CSV | `pandas` | 2.1.0 | Manipulation DataFrames |
+| JSON | `json` | stdlib | Sérialisation rapports |
+
+### Performance
+
+**Temps de scan typique** :
+
+| Plage réseau | Hôtes actifs | Durée scan | Durée totale (avec EOL) |
+|--------------|--------------|------------|-------------------------|
+| /24 (254 IPs) | 20 hôtes | 3-5 min | 4-6 min |
+| /24 (254 IPs) | 50 hôtes | 5-8 min | 6-10 min |
+| /16 (65k IPs) | 200 hôtes | 30-45 min | 35-50 min |
+
+### Prérequis système critiques
+
+**⚠️ IMPORTANT : `nmap` DOIT être installé sur le système**
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install nmap
+
+# Windows
+# Télécharger depuis https://nmap.org/download.html
+# Installer nmap-7.94-setup.exe
+# Ajouter au PATH: C:\Program Files (x86)\Nmap
+
+# Vérification
+nmap --version
 ```
+
+### Base de données EOL
+
+La base EOL est **statique** et **intégrée au code** (dictionnaire Python). Mise à jour manuelle nécessaire.
+
+**Structure complète** :
+
+```python
+eol_data = {
+    'Windows': {
+        'Windows 11': {
+            'release_date': date(2021, 10, 5),
+            'eol_date': None,  # Support continu
+            'eol_extended_date': None,
+            'status': 'supported'
+        },
+        'Windows 10': {
+            'release_date': date(2015, 7, 29),
+            'eol_date': date(2025, 10, 14),  # Mainstream
+            'eol_extended_date': date(2026, 10, 13),  # Extended
+            'status': 'soon_eol'
+        },
+        'Windows Server 2022': {...},
+        'Windows Server 2019': {...},
+        'Windows Server 2016': {...},
+        'Windows Server 2012 R2': {...},
+        'Windows Server 2012': {...},
+        'Windows Server 2008 R2': {...}
+    },
+    'Linux': {
+        'Ubuntu 24.04': {...},
+        'Ubuntu 22.04': {...},
+        'Ubuntu 20.04': {...},
+        'Ubuntu 18.04': {...},
+        'Debian 12': {...},
+        'Debian 11': {...},
+        'Debian 10': {...},
+        'Debian 9': {...},
+        'CentOS 9': {...},
+        'CentOS 8': {...},
+        'CentOS 7': {...},
+        'RHEL 9': {...},
+        'RHEL 8': {...},
+        'RHEL 7': {...}
+    },
+    'macOS': {
+        'macOS 14': {...},  # Sonoma
+        'macOS 13': {...},  # Ventura
+        'macOS 12': {...},  # Monterey
+        'macOS 11': {...}   # Big Sur
+    }
+}
+```
+
+**Sources officielles** :
+- Windows: https://learn.microsoft.com/en-us/lifecycle/products/
+- Ubuntu: https://wiki.ubuntu.com/Releases
+- Debian: https://wiki.debian.org/DebianReleases
+- CentOS: https://wiki.centos.org/About/Product
+- RHEL: https://access.redhat.com/support/policy/updates/errata
+- macOS: https://support.apple.com/en-us/HT201222
 
 ---
 
@@ -278,12 +451,7 @@ Module3_Audit
 psutil>=5.8.0          # Monitoring système cross-platform
 pymysql>=1.0.0         # Driver MySQL pur Python
 paramiko>=2.8.0        # SSH client pour Linux distant
-pypsrp>=0.8.1          # WinRM client pour Windows distant
-python-nmap>=0.7.1
-pandas>=2.1.4
-python-dateutil>=2.8.2
-requests>=2.31.0
-openpyxl>=3.1.2
+pypsrp>=0.8.0          # WinRM client pour Windows distant
 ```
 
 **Justification des versions**:
@@ -303,6 +471,36 @@ venv\Scripts\activate     # Windows
 # Installation dépendances
 pip install -r requirements.txt
 ```
+
+---
+
+## Compatibilité multi-plateforme
+
+### Tableau de compatibilité
+
+| OS | Python | psutil | paramiko | pypsrp | Testé |
+|----|--------|--------|----------|--------|-------|
+| **Windows 10/11** | 3.8+ | ✅ | ✅ | ✅ | ✅ |
+| **Windows Server 2016+** | 3.8+ | ✅ | ✅ | ✅ | ✅ |
+| **Ubuntu 20.04 LTS** | 3.8+ | ✅ | ✅ | ✅ | ✅ |
+| **Ubuntu 22.04 LTS** | 3.10+ | ✅ | ✅ | ✅ | ✅ |
+| **Debian 11** | 3.9+ | ✅ | ✅ | ✅ | ⚠️ Non testé |
+| **RHEL 8/9** | 3.8+ | ✅ | ✅ | ✅ | ⚠️ Non testé |
+
+### Adaptations plateforme
+
+**Windows**:
+- Chemins: `Path()` (pathlib) pour compatibilité
+- Clear screen: `os.system("cls")`
+- EOL: CRLF automatiquement géré par Python
+
+**Linux**:
+- Chemins: `/` natif
+- Clear screen: `os.system("clear")`
+- EOL: LF natif
+- Permissions: `chmod +x` pour exécution directe
+
+---
 
 ---
 
@@ -442,6 +640,7 @@ Horodatage: 2026-02-17T18:30:00
 ```
 NTL-SysToolbox/
 ├── src/
+│   ├── main.py                    # Orchestrateur principal
 │   ├── module1_diagnostic.py      # Module 1 autonome
 │   ├── module2_wms_backup.py      # Module 2 autonome
 │   └── ntl_config.json            # Configuration centralisée
@@ -463,25 +662,9 @@ NTL-SysToolbox/
 │   ├── USAGE.md                   # Guide utilisateur
 │   └── LICENCE.md                 # MIT License
 │
-├── main.py                        # Orchestrateur principal
 ├── requirements.txt               # Dépendances Python
 └── README.md                      # Documentation entrée
 ```
-
----
-
-## Évolutions futures
-
-### Roadmap
-
-**Version 2.1** (Q2 2026):
-- [ ] Support clés SSH (paramiko key-based auth)
-- [ ] Chiffrement config (python-keyring)
-- [ ] Logs rotatifs (logging + RotatingFileHandler)
-
-**Version 2.2** (Q3 2026):
-- [ ] Dashboard web (Dash/Streamlit)
-- [ ] Notifications (email/Slack/Teams)
 
 ---
 
@@ -516,7 +699,7 @@ NTL-SysToolbox/
 
 ## Auteur et maintenance
 
-**Développeur**: Équipe MSPR GRP 1 2025-2026  
+**Développeur**: Équipe MSPR GROUPE 1 2026  
 **Client**: Nord Transit Logistics (NTL)  
 **Licence**: MIT License  
 **Contact**: Administrateur Systèmes & Réseaux
