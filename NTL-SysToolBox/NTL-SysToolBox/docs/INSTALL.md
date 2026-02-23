@@ -242,6 +242,10 @@ nano /opt/ntl-systoolbox/src/ntl_config.json
 ```powershell
 notepad C:\ntl-systoolbox\src\ntl_config.json
 ```
+**main.py:**
+```powershell
+Selectionner le choix [C]
+```
 
 **Contenu à personnaliser:**
 
