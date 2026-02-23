@@ -1376,79 +1376,6 @@ find backups/audit/ -name "audit_*.csv" -mtime +365 -delete
 
 ---
 
-### Dépannage Module 3
-
-#### Erreur : "nmap program was not found in path"
-
-**Cause :** Binaire nmap non installé ou pas dans le PATH.
-
-**Solution :**
-```bash
-# Linux
-sudo apt install nmap
-which nmap  # Vérifier présence
-
-# Windows
-winget install Insecure.Nmap
-nmap --version  # Vérifier installation
-```
-
-#### Erreur : "Permission denied" lors du scan
-
-**Cause :** Scan SYN stealth nécessite privilèges élevés.
-
-**Solution :**
-```bash
-# Linux - Utiliser sudo
-sudo python src/module3_audit.py
-
-# Ou configurer capabilities (recommandé)
-sudo setcap cap_net_raw,cap_net_admin+eip $(which nmap)
-
-# Windows - Lancer PowerShell en Administrateur
-```
-
-#### Erreur : "Timeout during scan"
-
-**Cause :** Réseau lent ou pare-feu bloquant les paquets.
-
-**Solution :**
-```bash
-# Augmenter le timeout dans ntl_config.json
-{
-  "module3_audit": {
-    "nmap_timeout": 600,  # 10 minutes au lieu de 5
-    "detection_timeout": 5  # 5 secondes au lieu de 3
-  }
-}
-```
-
-#### Scan très lent (> 30 min pour /24)
-
-**Causes possibles :**
-- Réseau lent (< 10 Mbps)
-- Pare-feu avec rate-limiting
-- Nombre d'hôtes actifs > 100
-
-**Solutions :**
-1. Réduire la plage scannée (découper en sous-réseaux)
-2. Limiter les ports scannés (`--ports 22,445,3389`)
-3. Utiliser scan TCP connect au lieu de SYN stealth (plus lent mais sans privilèges)
-
-#### OS non détecté (status "Unknown")
-
-**Causes :**
-- Pare-feu bloquant les sondes nmap
-- OS non référencé dans base EOL
-- Fingerprint OS ambigu
-
-**Solutions :**
-1. Vérifier connectivité : `ping <ip>` puis `telnet <ip> <port>`
-2. Scan manuel : `nmap -O -v <ip>`
-3. Ajouter manuellement dans CSV avec os_version connue
-
----
-
 ## Planification des tâches
 
 ### Cron (Linux)
@@ -1615,6 +1542,77 @@ dir backups\
 ```bash
 mkdir -p backups/{ad_dns,mysql,windows,ubuntu,global,wms}
 ```
+
+### Dépannage Module 3
+
+#### Erreur : "nmap program was not found in path"
+
+**Cause :** Binaire nmap non installé ou pas dans le PATH.
+
+**Solution :**
+```bash
+# Linux
+sudo apt install nmap
+which nmap  # Vérifier présence
+
+# Windows
+winget install Insecure.Nmap
+nmap --version  # Vérifier installation
+```
+
+#### Erreur : "Permission denied" lors du scan
+
+**Cause :** Scan SYN stealth nécessite privilèges élevés.
+
+**Solution :**
+```bash
+# Linux - Utiliser sudo
+sudo python src/module3_audit.py
+
+# Ou configurer capabilities (recommandé)
+sudo setcap cap_net_raw,cap_net_admin+eip $(which nmap)
+
+# Windows - Lancer PowerShell en Administrateur
+```
+
+#### Erreur : "Timeout during scan"
+
+**Cause :** Réseau lent ou pare-feu bloquant les paquets.
+
+**Solution :**
+```bash
+# Augmenter le timeout dans ntl_config.json
+{
+  "module3_audit": {
+    "nmap_timeout": 600,  # 10 minutes au lieu de 5
+    "detection_timeout": 5  # 5 secondes au lieu de 3
+  }
+}
+```
+
+#### Scan très lent (> 30 min pour /24)
+
+**Causes possibles :**
+- Réseau lent (< 10 Mbps)
+- Pare-feu avec rate-limiting
+- Nombre d'hôtes actifs > 100
+
+**Solutions :**
+1. Réduire la plage scannée (découper en sous-réseaux)
+2. Limiter les ports scannés (`--ports 22,445,3389`)
+3. Utiliser scan TCP connect au lieu de SYN stealth (plus lent mais sans privilèges)
+
+#### OS non détecté (status "Unknown")
+
+**Causes :**
+- Pare-feu bloquant les sondes nmap
+- OS non référencé dans base EOL
+- Fingerprint OS ambigu
+
+**Solutions :**
+1. Vérifier connectivité : `ping <ip>` puis `telnet <ip> <port>`
+2. Scan manuel : `nmap -O -v <ip>`
+3. Ajouter manuellement dans CSV avec os_version connue
 
 ---
 
