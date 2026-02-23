@@ -68,8 +68,8 @@ nmap --version  # Doit afficher la version de nmap
 
 ### Lancement
 ```bash
-python systoolbox.py
-# Ou sous Windows : py systoolbox.py
+python main.py
+# Ou sous Windows : py main.py
 ```
 
 ---
@@ -140,7 +140,7 @@ NTL-SysToolbox/
 ├── src/
 │   ├── module1_diagnostic.py
 │   ├── module2_backup_wms.py
-│   ├── module3_audit.py           # ⭐ MODULE D'AUDIT
+│   ├── module3_audit.py           
 │   └── ntl_config.json
 ├── backups/                        # Sauvegardes générées
 │   ├── ad_dns/
@@ -149,17 +149,13 @@ NTL-SysToolbox/
 │   ├── ubuntu/
 │   ├── global/
 │   ├── wms/
-│   └── audit/                      # ⭐ RAPPORTS D'AUDIT
-│       ├── scan_results.csv
-│       ├── inventory_report.txt
-│       └── inventory_report.json
+│   └── audit/                      
 ├── docs/
 │   ├── INSTALL.md                  # Guide installation DSI
 │   ├── TECH.md                     # Architecture et choix techniques
 │   └── USAGE.md                    # Guide utilisation détaillé
 ├── requirements.txt                # Dépendances Python
 ├── main.py                         # Point d'entrée principal
-├── .gitignore
 ├── LICENSE
 └── README.md                       # Ce fichier
 ```
@@ -174,7 +170,7 @@ NTL-SysToolbox/
 
 ---
 
-## 🔍 Module Diagnostic
+## 🔍 Module 1 Diagnostic
 
 ### Objectif
 Confirmer rapidement que les briques critiques du siège sont disponibles et cohérentes, et produire un état synthétique d'un serveur.
@@ -231,11 +227,11 @@ Confirmer rapidement que les briques critiques du siège sont disponibles et coh
 
 ```bash
 # Via menu interactif
-python systoolbox.py
+python main.py
 > 1 (Diagnostic)
 
 # En ligne de commande directe
-python systoolbox.py --module diagnostic --target wms-db
+python main.py --module diagnostic --target wms-db
 
 ```
 
@@ -265,7 +261,7 @@ python systoolbox.py --module diagnostic --target wms-db
 
 ---
 
-## 💾 Module Sauvegarde WMS
+## 💾 Module 2 Sauvegarde WMS
 
 ### Objectif
 Garantir l'existence, l'intégrité et la traçabilité d'exports logiques de la base WMS (MySQL).
@@ -310,7 +306,7 @@ Garantir l'existence, l'intégrité et la traçabilité d'exports logiques de la
 
 ```bash
 # Sauvegarde SQL complète et Export CSV d'une table
-python systoolbox.py
+python main.py
 > 2 (Sauvegarde WMS)
 > Lancer? (o/n) [o]: 
 ```
@@ -346,7 +342,7 @@ python systoolbox.py
 
 ---
 
-## 🌐 Module Audit d'obsolescence
+## 🌐 Module 3 Audit d'obsolescence
 
 ### Objectif
 Fournir un inventaire réseau automatisé et qualifier le statut de support/EOL (End Of Life) des systèmes d'exploitation détectés.
@@ -938,11 +934,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Ce projet s'inscrit dans le cadre de la **MSPR (Mise en Situation Professionnelle Reconstituée)** du bloc **E6.1 - Concevoir et tester des solutions applicatives** du programme **Administrateur Systèmes, Réseaux et Bases de Données (ASRBD)** à l'**EPSI**.
 
+**Version** : 12.0.0   
 **Année universitaire** : 2025-2026  
 **Équipe** : MSPR-B3-GRP1  
-**Durée** : 19 heures de préparation + soutenance orale (50 min)
-
-**Version** : 12.0.0    
+**Durée** : 19 heures de préparation + soutenance orale (50 min) 
 **Repository** : https://github.com/Not-mat-collab/ntl-systoolbox
 ---
 
