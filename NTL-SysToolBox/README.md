@@ -667,50 +667,6 @@ Résumé:
    - `_analyze_components(components)` → Calcul statistiques
    - `_generate_text_report()` / `_generate_csv_report()` / `_generate_json_report()`
 
-### Cas d'usage DSI NTL
-
-**Scénario 1 : Audit annuel obligatoire**
-```bash
-# Audit complet infrastructure NTL (4 sites)
-python src/module3_audit.py
-> 1 (Scanner une plage réseau)
-> Plage IP: 10.5.60.0/24  # Siège Lille
-# Répéter pour 20.0/24, 30.0/24, 40.0/24 (autres sites)
-
-# Génération rapport consolidé pour direction
-# → Identification: 12 serveurs Windows Server 2012 R2 en EOL
-# → Recommandation: Plan de migration vers 2022 Q3 2026
-```
-
-**Scénario 2 : Validation post-migration**
-```bash
-# Avant migration: Export inventaire
-python src/module3_audit.py
-> 1 (Scanner)
-> Plage IP: 10.5.60.0/24
-> CSV: o → pre_migration_2026-02.csv
-
-# Après migration: Nouveau scan
-> CSV: o → post_migration_2026-03.csv
-
-# Comparaison: Vérifier disparition serveurs EOL
-```
-
-**Scénario 3 : Intégration inventaire existant GLPI**
-```bash
-# Export GLPI → CSV
-# Colonnes: ip, hostname, os_family, os_version
-
-# Import dans NTL-SysToolbox
-python src/module3_audit.py
-> 3 (Analyser un fichier CSV)
-> Chemin: ./export_glpi_2026-02.csv
-> Format rapport: [1] TXT
-
-# Rapport généré avec statuts EOL enrichis
-# → Permet qualification risque sans nouveau scan réseau
-```
-
 ---
 
 ## 📝 Cas d'usage DSI NTL
@@ -867,34 +823,6 @@ set MYSQL_ROOT_PASS=root_password
 
 ---
 
-## 🛠️ Développement & Contribution
-
-### Structure de développement
-
-```bash
-# Cloner en mode développement
-git clone https://github.com/Not-mat-collab/ntl-systoolbox.git
-cd ntl-systoolbox
-
-# Créer une branche feature
-git checkout -b feature/nouveau-module
-
-# Tests unitaires (si disponibles)
-pytest tests/
-
-# Commit avec convention
-git commit -m "feat(module3): Ajout détection CentOS Stream"
-git push origin feature/nouveau-module
-```
-
-### Conventions de code
-
-- **Python** : PEP 8, type hints, docstrings
-- **Commits** : Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`)
-- **Branches** : `main` (stable), `develop` (intégration), `feature/*`, `fix/*`
-
----
-
 ## 📚 Documentation complète
 
 - **[INSTALL.md](docs/INSTALL.md)** - Procédure installation DSI complète
@@ -913,20 +841,6 @@ git push origin feature/nouveau-module
 - Besoins: Diagnostic rapide, sauvegardes automatisées, conformité réglementaire
 
 **NTL-SysToolbox** répond aux enjeux opérationnels quotidiens de la DSI NTL.
-
----
-
-## 📄 Licence
-
-**MIT License**
-
-Copyright (c) 2026 Nord Transit Logistics - Équipe MSPR ASRBD
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
@@ -988,6 +902,20 @@ git push origin feature/ma-nouvelle-fonction
 - `test:` Tests
 - `refactor:` Refactorisation sans changement fonctionnel
 - `chore:` Maintenance (dépendances, config)
+
+---
+
+## 📄 Licence
+
+**MIT License**
+
+Copyright (c) 2026 Nord Transit Logistics - Équipe MSPR ASRBD
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
