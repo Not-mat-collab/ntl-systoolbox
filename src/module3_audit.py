@@ -17,9 +17,6 @@ from typing import List, Dict, Optional, Tuple
 import requests
 from requests.exceptions import RequestException
 
-# ── Dossier de sortie centralisé ──────────────────────────────────────
-OUTPUT_DIR = Path("backups/audit")
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 class NetworkScanner:
     def __init__(self):
@@ -88,105 +85,176 @@ class NetworkScanner:
             pass
         return sorted(open_ports)
     
+    def _extract_os(self, os_string: str) -> Tuple[str, str]:
+        """Extrait OS et version à partir de la chaîne Nmap (approche audit_os_V4)."""
+        os_lower = os_string.lower()
+        if 'debian' in os_lower:
+            numbers = re.findall(r'\d+', os_string)
+            if numbers:
+                return ('Debian', numbers[0])
+            return ('Debian', 'Unknown')
+        if 'ubuntu' in os_lower:
+            match = re.search(r'(\d+\.\d+)', os_string)
+            if match:
+                return ('Ubuntu', match.group(1))
+            return ('Ubuntu', 'Unknown')
+        if 'windows server' in os_lower:
+            match = re.search(r'(2003|2008|2012|2016|2019|2022|2025)', os_string)
+            version = 'Unknown'
+            if match:
+                version = match.group(1)
+                if 'r2' in os_lower:
+                    version += ' R2'
+            return ('Windows Server', version)
+        if 'windows' in os_lower or 'microsoft' in os_lower:
+            for v in ['11', '10', '8.1', '8', '7']:
+                if v in os_lower:
+                    return ('Windows', v)
+            return ('Windows', 'Unknown')
+        if 'linux' in os_lower:
+            return ('Linux', 'Unknown')
+        return (os_string, 'Unknown')
+
     def _get_os_info(self, ip: str) -> Dict:
         os_info = {
             'os_family': None,
             'os_gen': None,
             'os_details': None,
             'accuracy': None,
-            'build_number': None
+            'build_number': None,
+            'is_server': False
         }
         try:
-            if 'osmatch' in self.nm[ip]:
-                os_matches = self.nm[ip]['osmatch']
-                if os_matches:
-                    best_match = max(os_matches, key=lambda x: x.get('accuracy', 0))
-                    os_info['os_details'] = best_match.get('name', 'Unknown')
-                    os_info['accuracy'] = best_match.get('accuracy', 0)
-                    name = best_match.get('name', '').lower()
-                    build_match = re.search(r'build[_\s]?(\d+)', name)
-                    if build_match:
-                        os_info['build_number'] = int(build_match.group(1))
-                    if 'windows' in name:
+            os_matches = self.nm[ip].get('osmatch', [])
+            if not os_matches:
+                for osc in self.nm[ip].get('osclass', []):
+                    vendor = osc.get('vendor', '').lower()
+                    osfamily = osc.get('osfamily', '').lower()
+                    if 'microsoft' in vendor or 'windows' in osfamily:
                         os_info['os_family'] = 'Windows'
-                        os_info['os_gen'] = self._extract_windows_version(name)
-                    elif 'linux' in name or 'ubuntu' in name or 'debian' in name or 'centos' in name or 'red hat' in name:
+                    elif 'linux' in vendor or 'linux' in osfamily:
                         os_info['os_family'] = 'Linux'
-                        os_info['os_gen'] = self._extract_linux_version(name)
-                    elif 'macos' in name or 'mac os' in name:
-                        os_info['os_family'] = 'macOS'
-                        os_info['os_gen'] = self._extract_macos_version(name)
-            if 'osclass' in self.nm[ip]:
-                os_classes = self.nm[ip]['osclass']
-                if os_classes:
-                    best_class = max(os_classes, key=lambda x: x.get('accuracy', 0))
-                    if best_class.get('accuracy', 0) > os_info.get('accuracy', 0):
-                        os_type = best_class.get('type', '').lower()
-                        os_vendor = best_class.get('vendor', '').lower()
-                        os_family_class = best_class.get('osfamily', '').lower()
-                        if 'windows' in os_type or 'windows' in os_vendor or 'windows' in os_family_class:
-                            if not os_info['os_family']:
-                                os_info['os_family'] = 'Windows'
-                            if not os_info['os_gen']:
-                                os_gen = best_class.get('osgen', '')
-                                if os_gen:
-                                    os_info['os_gen'] = self._extract_windows_version(os_gen.lower())
-        except Exception as e:
+                    if osc.get('type', '').lower() == 'server':
+                        os_info['is_server'] = True
+                return os_info
+            best_match = max(os_matches, key=lambda x: int(x.get('accuracy', 0)))
+            os_info['os_details'] = best_match.get('name', 'Unknown')
+            os_info['accuracy'] = int(best_match.get('accuracy', 0))
+
+            for match in os_matches:
+                name = match.get('name', '').lower()
+                bm = re.search(r'build[_\s]?(\d+)', name)
+                if bm and not os_info['build_number']:
+                    os_info['build_number'] = int(bm.group(1))
+
+            for osc in best_match.get('osclass', []):
+                if osc.get('type', '').lower() == 'server':
+                    os_info['is_server'] = True
+                for cpe in osc.get('cpe', []):
+                    if 'windows_server' in cpe.lower():
+                        os_info['is_server'] = True
+            for osc in self.nm[ip].get('osclass', []):
+                if osc.get('type', '').lower() == 'server':
+                    os_info['is_server'] = True
+            for match in os_matches:
+                os_raw = match.get('name', '')
+                os_name, version = self._extract_os(os_raw)
+                if os_name in ('Ubuntu', 'Debian') and version != 'Unknown':
+                    os_info['os_family'] = 'Linux'
+                    os_info['os_gen'] = f"{os_name} {version}"
+                    break
+                if os_name == 'Windows Server' and version != 'Unknown':
+                    os_info['os_family'] = 'Windows'
+                    os_info['os_gen'] = f"Windows Server {version}"
+                    os_info['is_server'] = True
+                    break
+                if os_name == 'Windows' and version != 'Unknown':
+                    os_info['os_family'] = 'Windows'
+                    os_info['os_gen'] = f"Windows {version}"
+                    break
+            if not os_info['os_gen']:
+                for match in os_matches:
+                    os_raw = match.get('name', '')
+                    os_name, version = self._extract_os(os_raw)
+                    if os_name in ('Ubuntu', 'Debian'):
+                        os_info['os_family'] = 'Linux'
+                        break
+                    if os_name == 'Windows Server':
+                        os_info['os_family'] = 'Windows'
+                        os_info['is_server'] = True
+                        break
+                    if os_name == 'Windows':
+                        os_info['os_family'] = 'Windows'
+                        break
+                    if os_name == 'Linux':
+                        os_info['os_family'] = 'Linux'
+                        break
+            if not os_info['os_gen'] and os_info['os_family'] == 'Linux':
+                for match in os_matches:
+                    for osc in match.get('osclass', []):
+                        for cpe in osc.get('cpe', []):
+                            cpe_lower = cpe.lower()
+                            m = re.search(r'debian[_:].*?:(\d+)', cpe_lower)
+                            if m:
+                                os_info['os_gen'] = f"Debian {m.group(1)}"
+                                break
+                            m = re.search(r'ubuntu[_:].*?:(\d+\.\d+)', cpe_lower)
+                            if m:
+                                os_info['os_gen'] = f"Ubuntu {m.group(1)}"
+                                break
+                        if os_info['os_gen']:
+                            break
+                    if os_info['os_gen']:
+                        break
+            if os_info['os_family'] == 'Windows' and not os_info['os_gen']:
+                for match in os_matches:
+                    for osc in match.get('osclass', []):
+                        osgen = osc.get('osgen', '').strip()
+                        if osgen:
+                            gen_result = self._extract_os(f"windows {'server ' if os_info['is_server'] else ''}{osgen}")
+                            if gen_result[1] != 'Unknown':
+                                if gen_result[0] == 'Windows Server':
+                                    os_info['os_gen'] = f"Windows Server {gen_result[1]}"
+                                else:
+                                    os_info['os_gen'] = f"Windows {gen_result[1]}"
+                                break
+                        for cpe in osc.get('cpe', []):
+                            cpe_lower = cpe.lower()
+                            m = re.search(r'windows_server[_:](\d{4})', cpe_lower)
+                            if m:
+                                os_info['os_gen'] = f"Windows Server {m.group(1)}"
+                                os_info['is_server'] = True
+                                break
+                            m = re.search(r'windows[_:](\d+)', cpe_lower)
+                            if m and not os_info['os_gen']:
+                                ver = m.group(1)
+                                if ver in ('11', '10', '7', '8'):
+                                    os_info['os_gen'] = f"Windows {ver}"
+                                    break
+                        if os_info['os_gen']:
+                            break
+                    if os_info['os_gen']:
+                        break
+            if os_info['os_family'] == 'Windows' and not os_info['os_gen']:
+                bn = os_info['build_number']
+                if bn:
+                    if os_info['is_server']:
+                        if bn >= 26100:
+                            os_info['os_gen'] = "Windows Server 2025"
+                        elif bn >= 20348:
+                            os_info['os_gen'] = "Windows Server 2022"
+                        elif bn >= 17763:
+                            os_info['os_gen'] = "Windows Server 2019"
+                        elif bn >= 14393:
+                            os_info['os_gen'] = "Windows Server 2016"
+                    else:
+                        if bn >= 22000:
+                            os_info['os_gen'] = "Windows 11"
+                        elif bn >= 10240:
+                            os_info['os_gen'] = "Windows 10"
+        except Exception:
             pass
         return os_info
-    
-    def _extract_windows_version(self, name: str) -> Optional[str]:
-        name_lower = name.lower()
-        build_match = re.search(r'build[_\s]?(\d+)', name_lower)
-        build_number = None
-        if build_match:
-            build_number = int(build_match.group(1))
-        if build_number:
-            if build_number >= 22000:
-                return f"Windows 11 (Build {build_number})"
-            elif build_number >= 10240:
-                return f"Windows 10 (Build {build_number})"
-        if 'windows 11' in name_lower or 'win11' in name_lower:
-            return "Windows 11"
-        elif 'windows 10' in name_lower or 'win10' in name_lower:
-            if build_number and build_number < 22000:
-                return f"Windows 10 (Build {build_number})"
-            return "Windows 10"
-        elif 'windows server' in name_lower:
-            version_match = re.search(r'windows server[_\s]?(\d{4})', name_lower)
-            if version_match:
-                return f"Windows Server {version_match.group(1)}"
-            if build_number:
-                if build_number >= 20348:
-                    return "Windows Server 2022"
-                elif build_number >= 17763:
-                    return "Windows Server 2019"
-                elif build_number >= 14393:
-                    return "Windows Server 2016"
-            return "Windows Server"
-        return None
-    
-    def _extract_linux_version(self, name: str) -> Optional[str]:
-        name_lower = name.lower()
-        ubuntu_match = re.search(r'ubuntu[_\s]?(\d+\.\d+)', name_lower)
-        if ubuntu_match:
-            return f"Ubuntu {ubuntu_match.group(1)}"
-        debian_match = re.search(r'debian[_\s]?(\d+)', name_lower)
-        if debian_match:
-            return f"Debian {debian_match.group(1)}"
-        centos_match = re.search(r'centos[_\s]?(\d+)', name_lower)
-        if centos_match:
-            return f"CentOS {centos_match.group(1)}"
-        rhel_match = re.search(r'(?:rhel|red[_\s]?hat|redhat)[_\s]?(\d+)', name_lower)
-        if rhel_match:
-            return f"RHEL {rhel_match.group(1)}"
-        return None
-    
-    def _extract_macos_version(self, name: str) -> Optional[str]:
-        macos_match = re.search(r'mac os x (\d+\.\d+)', name.lower())
-        if macos_match:
-            return f"macOS {macos_match.group(1)}"
-        return None
     
     def _simple_ping_scan(self, ip_range: str) -> List[Dict]:
         hosts = []
@@ -221,18 +289,20 @@ class OSDetector:
     def __init__(self):
         self.detection_methods = [
             self._detect_via_smb,
+            self._detect_via_msrpc,
             self._detect_via_banner,
             self._detect_via_http_header,
             self._detect_via_ssh_banner,
             self._detect_via_snmp
         ]
-    
+
     def detect_os(self, ip: str, ports: Dict[int, str] = None) -> Dict:
         os_info = {
             'os_family': None,
             'os_version': None,
             'os_full_name': None,
             'detection_method': None,
+            'build_number': None,
             'confidence': 'low'
         }
         for method in self.detection_methods:
@@ -241,8 +311,9 @@ class OSDetector:
                 if result and result.get('os_version'):
                     os_info.update(result)
                     os_info['confidence'] = 'high'
-                    break
-            except Exception as e:
+                    if os_info.get('build_number'):
+                        break
+            except Exception:
                 continue
         return os_info
     
@@ -369,53 +440,228 @@ class OSDetector:
         else:
             return "Windows Server (ancien)"
     
-    def _detect_via_smb(self, ip: str) -> Optional[Dict]:
+    def _detect_via_smb(self, ip: str, ports: Dict = None) -> Optional[Dict]:
+        """Detect exact Windows version via SMB2 + NTLM negotiation.
+
+        The NTLMSSP CHALLENGE message always contains the OS build number in
+        its Version field (bytes 48-55), regardless of authentication.
+        No credentials are required.
+        """
+        import struct
+
+        def _asn1_len(n: int) -> bytes:
+            if n < 0x80:
+                return bytes([n])
+            if n < 0x100:
+                return bytes([0x81, n])
+            return bytes([0x82, (n >> 8) & 0xFF, n & 0xFF])
+
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(3)
-            result = sock.connect_ex((ip, 445))
-            if result == 0:
-                smb_negotiate = b'\x00\x00\x00\x54\xfeSMB@\x00'
-                sock.send(smb_negotiate)
-                response = sock.recv(1024)
+            if sock.connect_ex((ip, 445)) != 0:
                 sock.close()
-                if response:
-                    response_str = response.decode('utf-8', errors='ignore')
-                    if 'Windows' in response_str:
-                        win_match = re.search(r'Windows[_\s]?(\d+\.\d+)', response_str)
-                        if win_match:
-                            version = win_match.group(1)
-                            if version.startswith('10.'):
-                                return {
-                                    'os_family': 'Windows',
-                                    'os_version': 'Windows 10/11 (détecté via SMB)',
-                                    'os_full_name': 'Windows (détecté via SMB)',
-                                    'detection_method': 'SMB'
-                                }
+                return None
+
+            smb2_hdr = bytearray(64)
+            smb2_hdr[0:4] = b'\xfeSMB'
+            smb2_hdr[4:6] = b'\x40\x00'
+            neg_body = (
+                b'\x24\x00'
+                b'\x01\x00'
+                b'\x00\x00'
+                b'\x00\x00'
+                b'\x00\x00\x00\x00'
+                + b'\x00' * 16
+                + b'\x00' * 8
+                + b'\x02\x02'
+            )
+            payload1 = bytes(smb2_hdr) + neg_body
+            sock.send(struct.pack('>I', len(payload1)) + payload1)
+
+            buf = b''
+            while len(buf) < 4:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+            if len(buf) < 4:
+                sock.close()
+                return None
+            nb_len = struct.unpack('>I', buf[:4])[0]
+            while len(buf) < 4 + nb_len:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+            if buf[4:8] != b'\xfeSMB':
+                sock.close()
+                return None
+
+            ntlmssp_flags = 0xE2088297
+            ntlmssp_neg = (
+                b'NTLMSSP\x00'
+                b'\x01\x00\x00\x00'
+                + struct.pack('<I', ntlmssp_flags)
+                + b'\x00\x00\x00\x00\x28\x00\x00\x00'
+                + b'\x00\x00\x00\x00\x28\x00\x00\x00'
+                + b'\x06\x01\x00\x00\x00\x00\x00\x0f'
+            )
+
+            mech_ntlm       = b'\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+            mech_tok_inner  = b'\x04' + _asn1_len(len(ntlmssp_neg)) + ntlmssp_neg
+            mech_tok_ctx    = b'\xa2' + _asn1_len(len(mech_tok_inner)) + mech_tok_inner
+            mech_list_inner = b'\x06' + bytes([len(mech_ntlm)]) + mech_ntlm
+            mech_list_seq   = b'\x30' + _asn1_len(len(mech_list_inner)) + mech_list_inner
+            mech_list_ctx   = b'\xa0' + _asn1_len(len(mech_list_seq)) + mech_list_seq
+            neg_tok_seq     = mech_list_ctx + mech_tok_ctx
+            neg_tok         = b'\x30' + _asn1_len(len(neg_tok_seq)) + neg_tok_seq
+            neg_tok_init    = b'\xa0' + _asn1_len(len(neg_tok)) + neg_tok
+            spnego_oid      = b'\x06\x06\x2b\x06\x01\x05\x05\x02'
+            spnego_seq      = spnego_oid + neg_tok_init
+            sec_blob        = b'\x60' + _asn1_len(len(spnego_seq)) + spnego_seq
+
+            sec_offset = 64 + 25
+            ss_body = (
+                b'\x19\x00'
+                b'\x00'
+                b'\x00'
+                b'\x00\x00\x00\x00'
+                b'\x00\x00\x00\x00'
+                + struct.pack('<H', sec_offset)
+                + struct.pack('<H', len(sec_blob))
+                + b'\x00' * 8
+                + sec_blob
+            )
+            smb2_hdr2 = bytearray(64)
+            smb2_hdr2[0:4]   = b'\xfeSMB'
+            smb2_hdr2[4:6]   = b'\x40\x00'
+            smb2_hdr2[12:14] = b'\x01\x00'
+            smb2_hdr2[14:16] = b'\x01\x00'
+            smb2_hdr2[28:36] = b'\x01\x00\x00\x00\x00\x00\x00\x00'
+
+            payload2 = bytes(smb2_hdr2) + ss_body
+            sock.send(struct.pack('>I', len(payload2)) + payload2)
+
+            buf2 = b''
+            while len(buf2) < 4:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                buf2 += chunk
+            if len(buf2) < 4:
+                sock.close()
+                return None
+            nb_len2 = struct.unpack('>I', buf2[:4])[0]
+            while len(buf2) < 4 + nb_len2:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                buf2 += chunk
+            sock.close()
+
+            idx = buf2.find(b'NTLMSSP\x00\x02\x00\x00\x00')
+            if idx < 0:
+                return None
+            chal = buf2[idx:]
+            if len(chal) < 56:
+                return None
+
+            flags = struct.unpack('<I', chal[20:24])[0]
+            if not (flags & 0x02000000):
+                return None
+
+            build = struct.unpack('<H', chal[50:52])[0]
+            if build < 6000:
+                return None
+
+            return {
+                'os_family': 'Windows',
+                'os_version': 'Windows',
+                'build_number': build,
+                'detection_method': 'SMB/NTLM'
+            }
         except Exception:
             pass
         return None
     
     def _detect_via_snmp(self, ip: str, ports: Dict = None) -> Optional[Dict]:
         return None
+
+    def _detect_via_msrpc(self, ip: str, ports: Dict = None) -> Optional[Dict]:
+        """Detect Windows via MSRPC endpoint mapper (port 135).
+        Port 135 is exclusive to Windows. A successful TCP connection is enough
+        to confirm the OS family; we return a generic 'Windows' os_version so
+        the build-number logic in scan_network can still refine it.
+        """
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            if sock.connect_ex((ip, 135)) == 0:
+                sock.close()
+                return {
+                    'os_family': 'Windows',
+                    'os_version': 'Windows',
+                    'detection_method': 'MSRPC'
+                }
+            sock.close()
+        except Exception:
+            pass
+        return None
     
-    def normalize_os_version(self, os_family: str, raw_version: str) -> str:
+    def normalize_os_version(
+        self,
+        os_family: str,
+        raw_version: str,
+        build_number: Optional[int] = None,
+        is_server: bool = False
+    ) -> str:
         if not raw_version:
             return "Unknown"
         raw_lower = raw_version.lower()
         if os_family == 'Windows':
-            if 'windows 11' in raw_lower or 'win11' in raw_lower:
-                return "Windows 11"
-            elif 'windows 10' in raw_lower or 'win10' in raw_lower:
-                return "Windows 10"
-            elif 'windows server' in raw_lower or 'server' in raw_lower:
-                server_match = re.search(r'server[_\s]?(\d{4})', raw_lower)
-                if server_match:
-                    year = server_match.group(1)
-                    return f"Windows Server {year}"
-                return "Windows Server"
+            is_server_hint = is_server or ('server' in raw_lower and 'windows' in raw_lower)
+
+            if is_server_hint:
+                year_match = re.search(r'server[_\s]?(\d{4})', raw_lower)
+                if year_match:
+                    year = int(year_match.group(1))
+                    return "Windows Server 2025" if year >= 2025 else "Windows Server 2022"
+                if '2025' in raw_lower:
+                    return "Windows Server 2025"
+                if '2022' in raw_lower or '2019' in raw_lower or '2016' in raw_lower:
+                    return "Windows Server 2022"
             else:
-                return "Windows"
+                if 'windows 11' in raw_lower or 'win11' in raw_lower:
+                    return "Windows 11"
+                if 'windows 10' in raw_lower or 'win10' in raw_lower:
+                    return "Windows 10"
+
+            bn = build_number
+            if bn is None:
+                build_match = re.search(r'build[_\s]?(\d+)', raw_lower)
+                if build_match:
+                    bn = int(build_match.group(1))
+            if bn is not None:
+                if 22000 <= bn < 26100:
+                    return "Windows 11"
+                if 20348 <= bn < 22000:
+                    return "Windows Server 2022"
+                if 19041 <= bn < 20348:
+                    return "Windows 10"
+                if bn >= 26100:
+                    return "Windows Server 2025" if is_server_hint else "Windows 11"
+                if bn >= 17763:
+                    return "Windows Server 2019" if is_server_hint else "Windows 10"
+                if bn >= 14393:
+                    return "Windows Server 2016" if is_server_hint else "Windows 10"
+                return "Windows 10"
+
+            if is_server_hint:
+                return "Windows Server 2022"
+            if '11' in raw_lower:
+                return "Windows 11"
+            return "Windows 10"
         elif os_family == 'Linux':
             ubuntu_match = re.search(r'ubuntu[_\s]?(\d+\.\d+)', raw_lower)
             if ubuntu_match:
@@ -441,199 +687,158 @@ class OSDetector:
 
 
 class EOLDatabase:
+    API_BASE_URL = "https://endoflife.date/api"
+    PRODUCTS = [
+        {'os_family': 'Windows', 'api_product': 'windows', 'type': 'windows_client',
+         'eol_field': 'eol', 'extended_field': 'extendedSupport'},
+        {'os_family': 'Windows', 'api_product': 'windowsserver', 'type': 'windows_server',
+         'eol_field': 'support', 'extended_field': 'eol'},
+        {'os_family': 'Linux', 'api_product': 'ubuntu', 'type': 'standard', 'prefix': 'Ubuntu',
+         'eol_field': 'eol', 'extended_field': 'extendedSupport', 'max_versions': 4},
+        {'os_family': 'Linux', 'api_product': 'debian', 'type': 'standard', 'prefix': 'Debian',
+         'eol_field': 'eol', 'extended_field': 'extendedSupport', 'max_versions': 4},
+    ]
+
     def __init__(self):
         self.eol_data = self._load_eol_data()
-    
+
     def _load_eol_data(self) -> Dict:
-        return {
-            'Windows': {
-                'Windows 11': {
-                    'release_date': date(2021, 10, 5),
-                    'eol_date': None,
-                    'eol_extended_date': None,
-                    'status': 'supported'
-                },
-                'Windows 10': {
-                    'release_date': date(2015, 7, 29),
-                    'eol_date': date(2025, 10, 14),
-                    'eol_extended_date': date(2026, 10, 13),
-                    'status': 'soon_eol'
-                },
-                'Windows Server 2022': {
-                    'release_date': date(2021, 8, 18),
-                    'eol_date': date(2026, 10, 13),
-                    'eol_extended_date': date(2031, 10, 14),
-                    'status': 'supported'
-                },
-                'Windows Server 2019': {
-                    'release_date': date(2018, 10, 2),
-                    'eol_date': date(2024, 1, 9),
-                    'eol_extended_date': date(2029, 1, 9),
-                    'status': 'extended_support'
-                },
-                'Windows Server 2016': {
-                    'release_date': date(2016, 10, 12),
-                    'eol_date': date(2022, 1, 11),
-                    'eol_extended_date': date(2027, 1, 12),
-                    'status': 'extended_support'
-                },
-                'Windows Server 2012': {
-                    'release_date': date(2012, 9, 4),
-                    'eol_date': date(2018, 10, 9),
-                    'eol_extended_date': date(2023, 10, 10),
-                    'status': 'eol'
-                },
-                'Windows Server 2012 R2': {
-                    'release_date': date(2013, 10, 18),
-                    'eol_date': date(2018, 10, 9),
-                    'eol_extended_date': date(2023, 10, 10),
-                    'status': 'eol'
-                },
-                'Windows Server 2008 R2': {
-                    'release_date': date(2009, 10, 22),
-                    'eol_date': date(2015, 1, 13),
-                    'eol_extended_date': date(2020, 1, 14),
-                    'status': 'eol'
-                }
-            },
-            'Linux': {
-                'Ubuntu 24.04': {
-                    'release_date': date(2024, 4, 25),
-                    'eol_date': date(2029, 4, 25),
-                    'eol_extended_date': None,
-                    'status': 'supported'
-                },
-                'Ubuntu 22.04': {
-                    'release_date': date(2022, 4, 21),
-                    'eol_date': date(2027, 4, 21),
-                    'eol_extended_date': None,
-                    'status': 'supported'
-                },
-                'Ubuntu 20.04': {
-                    'release_date': date(2020, 4, 23),
-                    'eol_date': date(2025, 4, 23),
-                    'eol_extended_date': None,
-                    'status': 'soon_eol'
-                },
-                'Ubuntu 18.04': {
-                    'release_date': date(2018, 4, 26),
-                    'eol_date': date(2023, 4, 26),
-                    'eol_extended_date': date(2028, 4, 26),
-                    'status': 'extended_support'
-                },
-                'Ubuntu 16.04': {
-                    'release_date': date(2016, 4, 21),
-                    'eol_date': date(2021, 4, 21),
-                    'eol_extended_date': date(2026, 4, 21),
-                    'status': 'extended_support'
-                },
-                'Ubuntu 14.04': {
-                    'release_date': date(2014, 4, 17),
-                    'eol_date': date(2019, 4, 25),
-                    'eol_extended_date': date(2024, 4, 25),
-                    'status': 'eol'
-                },
-                'Debian 12': {
-                    'release_date': date(2023, 6, 10),
-                    'eol_date': date(2028, 6, 10),
-                    'eol_extended_date': None,
-                    'status': 'supported'
-                },
-                'Debian 11': {
-                    'release_date': date(2021, 8, 14),
-                    'eol_date': date(2026, 7, 31),
-                    'eol_extended_date': None,
-                    'status': 'supported'
-                },
-                'Debian 10': {
-                    'release_date': date(2019, 7, 6),
-                    'eol_date': date(2024, 6, 30),
-                    'eol_extended_date': date(2027, 6, 30),
-                    'status': 'extended_support'
-                },
-                'Debian 9': {
-                    'release_date': date(2017, 6, 17),
-                    'eol_date': date(2022, 6, 30),
-                    'eol_extended_date': date(2024, 6, 30),
-                    'status': 'eol'
-                },
-                'CentOS 9': {
-                    'release_date': date(2021, 12, 3),
-                    'eol_date': date(2027, 5, 31),
-                    'eol_extended_date': None,
-                    'status': 'supported'
-                },
-                'CentOS 8': {
-                    'release_date': date(2019, 9, 24),
-                    'eol_date': date(2021, 12, 31),
-                    'eol_extended_date': None,
-                    'status': 'eol'
-                },
-                'CentOS 7': {
-                    'release_date': date(2014, 7, 7),
-                    'eol_date': date(2024, 6, 30),
-                    'eol_extended_date': date(2027, 6, 30),
-                    'status': 'extended_support'
-                },
-                'RHEL 9': {
-                    'release_date': date(2022, 5, 17),
-                    'eol_date': date(2027, 5, 31),
-                    'eol_extended_date': date(2032, 5, 31),
-                    'status': 'supported'
-                },
-                'RHEL 8': {
-                    'release_date': date(2019, 5, 7),
-                    'eol_date': date(2024, 5, 31),
-                    'eol_extended_date': date(2029, 5, 31),
-                    'status': 'supported'
-                },
-                'RHEL 7': {
-                    'release_date': date(2014, 6, 10),
-                    'eol_date': date(2019, 8, 6),
-                    'eol_extended_date': date(2024, 6, 30),
-                    'status': 'eol'
-                }
-            },
-            'macOS': {
-                'macOS 14 (Sonoma)': {
-                    'release_date': date(2023, 9, 26),
-                    'eol_date': date(2026, 9, 26),
-                    'eol_extended_date': None,
-                    'status': 'supported'
-                },
-                'macOS 13 (Ventura)': {
-                    'release_date': date(2022, 10, 24),
-                    'eol_date': date(2025, 10, 24),
-                    'eol_extended_date': None,
-                    'status': 'supported'
-                },
-                'macOS 12 (Monterey)': {
-                    'release_date': date(2021, 10, 25),
-                    'eol_date': date(2024, 10, 25),
-                    'eol_extended_date': None,
-                    'status': 'soon_eol'
-                },
-                'macOS 11 (Big Sur)': {
-                    'release_date': date(2020, 11, 12),
-                    'eol_date': date(2023, 11, 12),
-                    'eol_extended_date': None,
-                    'status': 'eol'
-                }
-            }
-        }
-    
+        print("Récupération des données EOL depuis endoflife.date...")
+        data = {'Windows': {}, 'Linux': {}}
+        for product in self.PRODUCTS:
+            try:
+                cycles = self._fetch_api(product['api_product'])
+                entries = self._parse_product(cycles, product)
+                data[product['os_family']].update(entries)
+            except Exception as e:
+                print(f"  Avertissement ({product['api_product']}): {e}")
+        total = sum(len(v) for v in data.values())
+        print(f"  {total} version(s) chargée(s) depuis l'API.")
+        return data
+
+    def _fetch_api(self, product: str) -> list:
+        url = f"{self.API_BASE_URL}/{product}.json"
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+
+    @staticmethod
+    def _parse_date(value) -> Optional[date]:
+        if isinstance(value, str):
+            try:
+                return datetime.strptime(value, '%Y-%m-%d').date()
+            except ValueError:
+                return None
+        return None
+
+    @staticmethod
+    def _parse_eol_value(value) -> Optional[date]:
+        """Parse an EOL field that can be False (supported), True (EOL, no date), or a date string."""
+        if value is False:
+            return None
+        if value is True:
+            return date.today()
+        if isinstance(value, str):
+            try:
+                return datetime.strptime(value, '%Y-%m-%d').date()
+            except ValueError:
+                return None
+        return None
+
+    def _parse_product(self, cycles: list, config: dict) -> Dict:
+        ptype = config['type']
+        if ptype == 'windows_client':
+            return self._parse_windows_client(cycles, config)
+        elif ptype == 'windows_server':
+            return self._parse_windows_server(cycles, config)
+        return self._parse_standard(cycles, config)
+
+    def _parse_windows_client(self, cycles: list, config: dict) -> Dict:
+        """Consolidate Windows client cycles by major version (10, 11, etc.).
+        Uses earliest release date and latest EOL date per major version."""
+        groups = {}
+        for c in cycles:
+            cid = c.get('cycle', '')
+            if 'lts' in cid or 'iot' in cid:
+                continue
+            if cid.startswith('11-'):
+                major = '11'
+            elif cid.startswith('10-'):
+                major = '10'
+            else:
+                continue
+            rd = self._parse_date(c.get('releaseDate'))
+            eol = self._parse_eol_value(c.get(config['eol_field']))
+            ext = self._parse_eol_value(c.get(config['extended_field'])) if config.get('extended_field') else None
+            if major not in groups:
+                groups[major] = {'release_date': rd, 'eol_date': eol, 'eol_extended_date': ext}
+            else:
+                g = groups[major]
+                if rd and (not g['release_date'] or rd < g['release_date']):
+                    g['release_date'] = rd
+                if eol and (not g['eol_date'] or eol > g['eol_date']):
+                    g['eol_date'] = eol
+                if ext and (not g['eol_extended_date'] or ext > g['eol_extended_date']):
+                    g['eol_extended_date'] = ext
+        return {f"Windows {m}": info for m, info in groups.items()}
+
+    def _parse_windows_server(self, cycles: list, config: dict) -> Dict:
+        """Parse Windows Server cycles, keeping only LTSC (long-term) editions."""
+        result = {}
+        for c in cycles:
+            if not c.get('lts', False):
+                continue
+            cid = c.get('cycle', '')
+            year_match = re.search(r'(\d{4})', cid)
+            if not year_match:
+                continue
+            year = year_match.group(1)
+            if year not in ('2016', '2019', '2022', '2025'):
+                continue
+            name = f"Windows Server {year}"
+            rd = self._parse_date(c.get('releaseDate'))
+            eol = self._parse_eol_value(c.get(config['eol_field']))
+            ext = self._parse_eol_value(c.get(config['extended_field']))
+            if name not in result or (eol and (not result[name]['eol_date'] or eol > result[name]['eol_date'])):
+                result[name] = {'release_date': rd, 'eol_date': eol, 'eol_extended_date': ext}
+        return result
+
+    def _parse_standard(self, cycles: list, config: dict) -> Dict:
+        prefix = config['prefix']
+        eol_field = config['eol_field']
+        ext_field = config.get('extended_field')
+        max_versions = config.get('max_versions')
+        entries = []
+        for c in cycles:
+            name = f"{prefix} {c.get('cycle', '')}"
+            rd = self._parse_date(c.get('releaseDate'))
+            eol = self._parse_eol_value(c.get(eol_field))
+            ext = self._parse_eol_value(c.get(ext_field)) if ext_field else None
+            entries.append((name, {'release_date': rd, 'eol_date': eol, 'eol_extended_date': ext}))
+        if max_versions:
+            entries.sort(key=lambda x: x[1].get('release_date') or date.min, reverse=True)
+            entries = entries[:max_versions]
+        return dict(entries)
+
     def get_eol_info(self, os_family: str, os_version: str) -> Optional[Dict]:
         if os_family not in self.eol_data:
             return None
-        if os_version in self.eol_data[os_family]:
-            return self.eol_data[os_family][os_version].copy()
-        for key, value in self.eol_data[os_family].items():
+        family_data = self.eol_data[os_family]
+        if os_version in family_data:
+            return family_data[os_version].copy()
+        for key, value in family_data.items():
             if os_version.lower() in key.lower() or key.lower() in os_version.lower():
                 result = value.copy()
                 result['matched_version'] = key
                 return result
+        if os_version.startswith('CentOS ') and not os_version.startswith('CentOS Stream'):
+            stream_key = os_version.replace('CentOS ', 'CentOS Stream ', 1)
+            if stream_key in family_data:
+                result = family_data[stream_key].copy()
+                result['matched_version'] = stream_key
+                return result
         return None
-    
+
     def list_all_versions(self, os_family: str) -> List[Dict]:
         if os_family not in self.eol_data:
             return []
@@ -642,9 +847,9 @@ class EOLDatabase:
             version_info = info.copy()
             version_info['version'] = version
             versions.append(version_info)
-        versions.sort(key=lambda x: x['release_date'], reverse=True)
+        versions.sort(key=lambda x: x.get('release_date') or date.min, reverse=True)
         return versions
-    
+
     def get_status(self, eol_info: Dict) -> str:
         if not eol_info:
             return 'unknown'
@@ -666,8 +871,8 @@ class EOLDatabase:
                 return 'soon_eol'
             elif days_until_eol < 365:
                 return 'warning'
-        return eol_info.get('status', 'supported')
-    
+        return 'supported'
+
     def get_days_until_eol(self, eol_info: Dict) -> Optional[int]:
         if not eol_info:
             return None
@@ -940,20 +1145,68 @@ def scan_network(ip_range: str, output_csv: str = None):
         ports_dict = {port: 'open' for port in host.get('open_ports', [])}
         os_info_detected = detector.detect_os(ip, ports_dict)
         os_family = os_info_detected.get('os_family') or os_info_nmap.get('os_family') or 'Unknown'
-        os_version_raw = os_info_detected.get('os_version') or os_info_nmap.get('os_gen') or os_info_nmap.get('os_details') or 'Unknown'
-        build_number = os_info_nmap.get('build_number')
+
+        if os_family == 'Unknown':
+            win_ports = {135, 139, 445, 3389}
+            if win_ports.intersection(set(host.get('open_ports', []))):
+                os_family = 'Windows'
+
+        is_server = os_info_nmap.get('is_server', False)
+
+        build_number = os_info_detected.get('build_number') or os_info_nmap.get('build_number')
+
+        os_version_raw = os_info_detected.get('os_version') or os_info_nmap.get('os_gen') or 'Unknown'
+
+        if os_version_raw in ('Unknown', 'Windows', None) and os_info_nmap.get('os_details'):
+            os_name, ver = scanner._extract_os(os_info_nmap['os_details'])
+            if ver != 'Unknown':
+                if os_name == 'Windows Server':
+                    os_version_raw = f"Windows Server {ver}"
+                    is_server = True
+                elif os_name in ('Windows', 'Ubuntu', 'Debian'):
+                    os_version_raw = f"{os_name} {ver}"
+            elif os_name in ('Windows', 'Windows Server', 'Linux', 'Ubuntu', 'Debian'):
+                os_version_raw = os_info_nmap['os_details']
+
         if build_number and os_family == 'Windows':
-            if build_number >= 22000:
-                os_version_raw = f"Windows 11 (Build {build_number})"
-            elif build_number >= 10240:
-                os_version_raw = f"Windows 10 (Build {build_number})"
+            is_srv = is_server or 'server' in (os_version_raw or '').lower() or \
+                     'server' in (os_info_nmap.get('os_details') or '').lower()
+            if 22000 <= build_number < 26100:
+                os_version_raw = "Windows 11"
+                is_server = False
+            elif 20348 <= build_number < 22000:
+                os_version_raw = "Windows Server 2022"
+                is_server = True
+            elif 19041 <= build_number < 20348:
+                os_version_raw = "Windows 10"
+                is_server = False
+            elif build_number >= 26100:
+                os_version_raw = "Windows Server 2025" if is_srv else "Windows 11"
+                is_server = is_srv
+            elif build_number >= 17763:
+                os_version_raw = "Windows Server 2019" if is_srv else "Windows 10"
+                is_server = is_srv
+            elif build_number >= 14393:
+                os_version_raw = "Windows Server 2016" if is_srv else "Windows 10"
+                is_server = is_srv
+            else:
+                os_version_raw = "Windows 10"
+
         if os_family == 'Linux' and (os_version_raw == 'Unknown' or os_version_raw.lower() == 'linux'):
             linux_version = os_info_nmap.get('os_gen')
             if linux_version and linux_version.lower() != 'linux':
                 os_version_raw = linux_version
-        os_version = detector.normalize_os_version(os_family, os_version_raw)
+
+        os_version = detector.normalize_os_version(
+            os_family,
+            os_version_raw,
+            build_number=build_number,
+            is_server=is_server
+        )
         if os_version == 'Linux' and os_version_raw != 'Unknown' and os_version_raw.lower() != 'linux':
-            if 'ubuntu' in os_version_raw.lower() or 'debian' in os_version_raw.lower() or 'centos' in os_version_raw.lower() or 'rhel' in os_version_raw.lower() or 'red hat' in os_version_raw.lower():
+            if 'ubuntu' in os_version_raw.lower() or 'debian' in os_version_raw.lower() or \
+               'centos' in os_version_raw.lower() or 'rhel' in os_version_raw.lower() or \
+               'red hat' in os_version_raw.lower():
                 os_version = os_version_raw
         eol_info = eol_db.get_eol_info(os_family, os_version)
         status = eol_db.get_status(eol_info) if eol_info else 'unknown'
@@ -1071,7 +1324,7 @@ def process_csv(csv_path: str, output_report: str = None, format: str = 'txt'):
         component['days_until_eol'] = days_until_eol
         components.append(component)
     generator = ReportGenerator()
-    report_path = output_report or str(OUTPUT_DIR / f"{Path(csv_path).stem}_report.txt")
+    report_path = output_report or csv_path.replace('.csv', '_report.txt')
     generator.generate_report(components, eol_db, report_path, format)
     print(f"\nRapport généré: {report_path}")
     stats = {
@@ -1103,7 +1356,7 @@ def display_menu():
     print("  [1] Scanner une plage réseau")
     print("  [2] Lister les versions d'un OS et leurs dates EOL")
     print("  [3] Analyser un fichier CSV")
-    print("  [0] Quitter")
+    print("  [4] Quitter")
     print()
     print("="*80)
 
@@ -1131,7 +1384,7 @@ def menu_scan_network():
     if export_csv == 'o' or export_csv == 'oui' or export_csv == 'y' or export_csv == 'yes':
         output_csv = input("Nom du fichier CSV [scan_results.csv]: ").strip()
         if not output_csv:
-            output_csv = str(OUTPUT_DIR / "scan_results.csv")
+            output_csv = "scan_results.csv"
     print("\nDémarrage du scan...")
     print("(Cela peut prendre plusieurs minutes selon la taille du réseau)\n")
     try:
@@ -1153,14 +1406,12 @@ def menu_list_os():
     print("Sélectionnez la famille d'OS:")
     print("  [1] Windows")
     print("  [2] Linux")
-    print("  [3] macOS")
-    print("  [0] Retour au menu principal")
+    print("  [3] Retour au menu principal")
     print()
-    choice = input("Votre choix [0-3]: ").strip()
+    choice = input("Votre choix [1-3]: ").strip()
     os_families = {
         '1': 'Windows',
-        '2': 'Linux',
-        '3': 'macOS'
+        '2': 'Linux'
     }
     if choice in os_families:
         os_family = os_families[choice]
@@ -1169,7 +1420,7 @@ def menu_list_os():
             list_os_versions(os_family)
         except Exception as e:
             print(f"\nErreur: {e}")
-    elif choice == '0':
+    elif choice == '3':
         return
     else:
         print("\nChoix invalide.")
@@ -1220,26 +1471,19 @@ def main():
     while True:
         clear_screen()
         display_menu()
-        choice = input("Votre choix [0-3]: ").strip()
+        choice = input("Votre choix [1-4]: ").strip()
         if choice == '1':
             menu_scan_network()
         elif choice == '2':
             menu_list_os()
         elif choice == '3':
             menu_process_csv()
-        elif choice == '0':
-            clear_screen()
-            print("\n" + "="*80)
-            print("Au revoir!")
-            print("="*80)
-            print()
+        elif choice == '4':
             break
         else:
-            print("\nChoix invalide. Veuillez entrer un nombre entre 0 et 3.")
+            print("\nChoix invalide. Veuillez entrer un nombre entre 1 et 4.")
             input("\nAppuyez sur Entrée pour continuer...")
 
 
 if __name__ == '__main__':
     main()
-
-
