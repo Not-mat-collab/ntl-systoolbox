@@ -25,37 +25,44 @@ class NetworkScanner:
     def __init__(self):
         self.nm = nmap.PortScanner()
 
-    def scan_range(self, ip_range: str, ports: str = "22,80,443,3389,135,139,445,53,161,123") -> List[Dict]:
-    # ... (détection root comme avant)
-    
-        args_base = f'--privileged -sS -sV -O --osscan-guess --max-os-tries 3 -p {ports}'
-        if not is_root:
-            args_base = args_base.replace('-sS', '-sT')
-    
+     def scan_range(self, ip_range: str, ports: str = "22,80,443,3389,135,139,445,53,161,123") -> List[Dict]:
+    print("Scan de la plage réseau : " + ip_range)
+    print("Cela peut prendre quelques minutes...")
+    hosts = []
+
+    is_linux = platform.system().lower() == "linux"
+    is_root = (os.geteuid() == 0) if is_linux else True
+
+    if is_root:
+        args_base = "--privileged -sS -sV -O --osscan-guess --max-os-tries 3 -p " + ports
+    else:
+        args_base = "-sT -sV -O --osscan-guess --max-os-tries 3 -p " + ports
+
+    try:
+        self.nm.scan(hosts=ip_range, arguments=args_base)
+    except Exception as e:
+        print("Erreur scan principal : " + str(e))
         try:
-            self.nm.scan(hosts=ip_range, arguments=args_base)
-        except:
-            # UDP fallback pour OS
-            self.nm.scan(hosts=ip_range, arguments=args_base.replace('-sS', '-sU'))
-    
-            # Reste identique
-      
-            for host in self.nm.all_hosts():
-                host_info = {
-                    'ip': host,
-                    'hostname': self._get_hostname(host),
-                    'state': self.nm[host].state(),
-                    'mac': self._get_mac_address(host),
-                    'vendor': self._get_vendor(host),
-                    'open_ports': self._get_open_ports(host),
-                    'os_info': self._get_os_info(host)
-                }
-                hosts.append(host_info)
-                print(f"  Hôte détecté: {host} ({host_info['hostname']})")
-        except Exception as e:
-            print(f"Erreur lors du scan: {e}")
-            hosts = self._simple_ping_scan(ip_range)
-        return hosts
+            self.nm.scan(hosts=ip_range, arguments="-sT -sV -sn -p " + ports)
+        except Exception as e2:
+            print("Erreur fallback : " + str(e2))
+            hosts = self.simple_ping_scan(ip_range)
+            return hosts
+
+    for host in self.nm.all_hosts():
+        host_info = {
+            'ip': host,
+            'hostname': self.get_hostname(host),
+            'state': self.nm[host].state(),
+            'mac': self.get_mac_address(host),
+            'vendor': self.get_vendor(host),
+            'open_ports': self.get_open_ports(host),
+            'os_info': self.get_os_info(host)
+        }
+        hosts.append(host_info)
+        print("Hôte détecté : " + host + " (" + host_info['hostname'] + ")")
+
+    return hosts
     
     def _get_hostname(self, ip: str) -> str:
         try:
