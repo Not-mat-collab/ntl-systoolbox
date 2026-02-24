@@ -24,46 +24,48 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 class NetworkScanner:
     def __init__(self):
         self.nm = nmap.PortScanner()
-
+    
     def scan_range(self, ip_range: str, ports: str = "22,80,443,3389,135,139,445,53,161,123") -> List[Dict]:
-        print("Scan de la plage réseau : " + ip_range)
+        print("Scan de la plage reseau : " + ip_range)
         print("Cela peut prendre quelques minutes...")
         hosts = []
-    
+
         is_linux = platform.system().lower() == "linux"
         is_root = (os.geteuid() == 0) if is_linux else True
-    
+
         if is_root:
             args_base = "--privileged -sS -sV -O --osscan-guess --max-os-tries 3 -p " + ports
         else:
             args_base = "-sT -sV -O --osscan-guess --max-os-tries 3 -p " + ports
-    
+
         try:
             self.nm.scan(hosts=ip_range, arguments=args_base)
-            except Exception as e:
-                print("Erreur scan principal : " + str(e))
+        except Exception as e:
+            print("Erreur scan principal : " + str(e))
             try:
-                self.nm.scan(hosts=ip_range, arguments=args_base)
-            except Exception as e:
-                print("Erreur scan : " + str(e))
+                fallback = "-sT -sn -p " + ports
+                self.nm.scan(hosts=ip_range, arguments=fallback)
+            except Exception as e2:
+                print("Erreur fallback : " + str(e2))
                 hosts = self.simple_ping_scan(ip_range)
                 return hosts
-    
+
         for host in self.nm.all_hosts():
             host_info = {
-                'ip': host,
-                'hostname': self.get_hostname(host),
-                'state': self.nm[host].state(),
-                'mac': self.get_mac_address(host),
-                'vendor': self.get_vendor(host),
-                'open_ports': self.get_open_ports(host),
-                'os_info': self.get_os_info(host)
+                "ip": host,
+                "hostname": self.get_hostname(host),
+                "state": self.nm[host].state(),
+                "mac": self.get_mac_address(host),
+                "vendor": self.get_vendor(host),
+                "open_ports": self.get_open_ports(host),
+                "os_info": self.get_os_info(host)
             }
             hosts.append(host_info)
-            print("Hôte détecté : " + host + " (" + host_info['hostname'] + ")")
+            print("Hote detecte : " + host + " (" + host_info["hostname"] + ")")
 
         return hosts
-    
+
+
     def _get_hostname(self, ip: str) -> str:
         try:
             hostname = socket.gethostbyaddr(ip)[0]
@@ -1254,4 +1256,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
