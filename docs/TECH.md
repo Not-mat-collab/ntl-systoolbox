@@ -12,7 +12,7 @@ NTL-SysToolbox est un outil modulaire Python 3.9+ conçu pour l'exploitation quo
 │           Menu interactif + Orchestration           │
 └───────────┬─────────────────────────────────────────┘
             │
-    ┌───────┴────────┬─────────────────┬
+    ┌───────┴────────┬─────────────────┐
     │                │                 │              
 ┌───▼────┐  ┌────────▼───────┐  ┌─────▼─────────┐     
 │Module 1│  │   Module 2     │  │   Module 3    │     
@@ -20,7 +20,7 @@ NTL-SysToolbox est un outil modulaire Python 3.9+ conçu pour l'exploitation quo
 │ stic   │  │                │  │lescence       │     
 └────────┘  └────────────────┘  └───────────────┘    
     │                │                 │          
-    └────────────────┴─────────────────┴
+    └────────────────┴─────────────────┘
                      │
         ┌────────────┴────────────┐
         │   ntl_config.json       │
