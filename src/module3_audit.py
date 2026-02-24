@@ -1111,8 +1111,11 @@ Total de composants: {analysis['total']}
         return report
     
     def _save_report(self, content: str, output_path: str, format: str):
+        audit_dir = Path("audit")
+        audit_dir.mkdir(exist_ok=True, parents=True)
+      
         path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path = audit_dir / path.name
         if format == 'csv':
             path = path.with_suffix('.csv')
         elif format == 'json':
@@ -1126,6 +1129,12 @@ Total de composants: {analysis['total']}
 
 
 def scan_network(ip_range: str, output_csv: str = None):
+    audit_dir = Path("audit")
+    audit_dir.mkdir(exist_ok=True)
+
+    # Puis pour les exports :
+    output_csv = audit_dir / output_csv if output_csv else audit_dir / "scan_results.csv"
+    
     print("="*80)
     print("SCAN RÉSEAU")
     print("="*80)
@@ -1287,6 +1296,12 @@ def list_os_versions(os_family: str):
 
 
 def process_csv(csv_path: str, output_report: str = None, format: str = 'txt'):
+    audit_dir = Path("audit")
+    audit_dir.mkdir(exist_ok=True)
+
+    # Puis pour les exports :
+    output_csv = audit_dir / output_csv if output_csv else audit_dir / "scan_results.csv"
+  
     print("="*80)
     print("TRAITEMENT DU FICHIER CSV")
     print("="*80)
@@ -1487,3 +1502,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
