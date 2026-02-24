@@ -25,7 +25,7 @@ class NetworkScanner:
     def __init__(self):
         self.nm = nmap.PortScanner()
 
-     def scan_range(self, ip_range: str, ports: str = "22,80,443,3389,135,139,445,53,161,123") -> List[Dict]:
+    def scan_range(self, ip_range: str, ports: str = "22,80,443,3389,135,139,445,53,161,123") -> List[Dict]:
         print("Scan de la plage réseau : " + ip_range)
         print("Cela peut prendre quelques minutes...")
         hosts = []
