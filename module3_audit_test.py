@@ -36,18 +36,17 @@ class NetworkScanner:
         if is_root:
             args_base = "--privileged -sS -sV -O --osscan-guess --max-os-tries 3 -p " + ports
         else:
-            args_base = "-sT -sV -O --osscan-guess --max-os-tries 3 -p " + ports
+            args_base = "-sT -sV -p " + ports
 
         try:
             self.nm.scan(hosts=ip_range, arguments=args_base)
         except Exception as e:
             print("Erreur scan principal : " + str(e))
             try:
-                fallback = "-sT -sn -p " + ports
-                self.nm.scan(hosts=ip_range, arguments=fallback)
+                self.nm.scan(hosts=ip_range, arguments="-sT -p " + ports)
             except Exception as e2:
                 print("Erreur fallback : " + str(e2))
-                hosts = self.simple_ping_scan(ip_range)
+                hosts = self._simple_ping_scan(ip_range)
                 return hosts
 
         for host in self.nm.all_hosts():
@@ -1256,3 +1255,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
