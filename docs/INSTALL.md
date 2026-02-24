@@ -701,7 +701,7 @@ Le Module 3 utilise des scans SYN stealth (`-sS`) et détection OS (`-O`) qui n�
 sudo python src/module3_audit.py
 ```
 
-**Option B: Capabilities Linux (RECOMMANDÉ pour production):**
+**Option B: Capabilities Linux (RECOMMANDÉ++ pour production):**
 ```bash
 # Accorder capacité CAP_NET_RAW à nmap
 sudo setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which nmap)
