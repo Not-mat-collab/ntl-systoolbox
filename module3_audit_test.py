@@ -28,17 +28,17 @@ class NetworkScanner:
     def scan_range(self, ip_range: str, ports: str = "22,80,443,3389,135,139,445,53,161,123") -> List[Dict]:
     # ... (détection root comme avant)
     
-    args_base = f'--privileged -sS -sV -O --osscan-guess --max-os-tries 3 -p {ports}'
-    if not is_root:
-        args_base = args_base.replace('-sS', '-sT')
+        args_base = f'--privileged -sS -sV -O --osscan-guess --max-os-tries 3 -p {ports}'
+        if not is_root:
+            args_base = args_base.replace('-sS', '-sT')
     
-    try:
-        self.nm.scan(hosts=ip_range, arguments=args_base)
-    except:
-        # UDP fallback pour OS
-        self.nm.scan(hosts=ip_range, arguments=args_base.replace('-sS', '-sU'))
+        try:
+            self.nm.scan(hosts=ip_range, arguments=args_base)
+        except:
+            # UDP fallback pour OS
+            self.nm.scan(hosts=ip_range, arguments=args_base.replace('-sS', '-sU'))
     
-    # Reste identique
+            # Reste identique
       
             for host in self.nm.all_hosts():
                 host_info = {
