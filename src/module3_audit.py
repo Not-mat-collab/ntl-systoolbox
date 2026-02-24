@@ -31,9 +31,9 @@ class NetworkScanner:
         hosts = []
         try:
             try:
-                self.nm.scan(hosts=ip_range, arguments=f'-sS -O --osscan-limit -p {ports}')
+                self.nm.scan(hosts=ip_range, arguments=f'--privileged -sS -O --osscan-limit -p {ports}')
             except:
-                self.nm.scan(hosts=ip_range, arguments=f'-sS -O --osscan-guess -p {ports}')
+                self.nm.scan(hosts=ip_range, arguments=f'--privileged -sS -O --osscan-guess -p {ports}')
             for host in self.nm.all_hosts():
                 host_info = {
                     'ip': host,
@@ -1241,4 +1241,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
